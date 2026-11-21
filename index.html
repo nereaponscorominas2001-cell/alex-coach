@@ -71,7 +71,7 @@ const F=(id,l,t="number",v="")=>`<label>${l}<input id="${id}" type="${t}" step="
 const SEL=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>`;
 const APP_URL="https://coach-os-alex-vicent-coach.vercel.app";
 let me=null,tab="inicio",sel=null,inviteMode=new URLSearchParams(location.hash.slice(1)).get("type")==="invite",recoveryMode=new URLSearchParams(location.hash.slice(1)).get("type")==="recovery";
-const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["diario","Registro diario"],["progreso","Mi evolución"],["revision","Revisiones"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
+const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
 const ok=r=>{if(r.error){alert(r.error.message);return false}return true};
 async function boot(){const{data:{session}}=await sb.auth.getSession();if(inviteMode){me=null;return draw()}if(!session){me=null;return draw()}
  const r=await sb.from("profiles").select("*").eq("id",session.user.id).single();me=r.data;draw()}
@@ -100,14 +100,57 @@ const V={
 async c_inicio(){const[d,p,n]=await Promise.all([sb.from("daily_logs").select("fecha,peso").eq("client_id",me.id).not("peso","is",null).order("fecha",{ascending:false}).limit(1),sb.from("plans").select("tipo,nombre").eq("client_id",me.id).eq("activo",true),sb.from("notifications").select("id").is("read_at",null)]);
  return`<h1>Hola${me.nombre?", <em>"+esc(me.nombre)+"</em>":""}</h1><div class="grid"><div class="card"><h3>Peso actual</h3><div class="stat">${d.data?.[0]?.peso??"-"}</div></div><div class="card"><h3>Objetivo</h3><b>${esc(me.objetivo)||"-"}</b></div><div class="card"><h3>Avisos nuevos</h3><div class="stat">${n.data?.length||0}</div></div></div>
  <div class="card"><h3>Tus planes</h3>${(p.data||[]).map(x=>`<p><span class="tag">${x.tipo}</span> ${esc(x.nombre)}</p>`).join("")||'<p class="muted">Tu entrenadora aún no te ha asignado planes.</p>'}</div>`},
-async c_diario(){const{data}=await sb.from("daily_logs").select("*").eq("client_id",me.id).order("fecha",{ascending:false}).limit(14);
- return`<h1>Registro <em>diario</em></h1><div class="card"><div class="row">${F("d_f","Fecha","date",today())}${F("d_p","Peso (kg)")}${F("d_e","Energía 1-10")}${F("d_h","Hambre 1-10")}${F("d_s","Sueño 1-10")}${F("d_hs","Horas dormidas")}${F("d_st","Estrés 1-10")}${F("d_a","Ánimo 1-10")}${SEL("d_d","¿Seguiste la dieta?",[["si","Sí"],["parcial","Parcialmente"],["no","No"]])}${F("d_w","Agua (L)")}${F("d_pa","Pasos")}${SEL("d_en","¿Entrenaste?",[["true","Sí"],["false","No"]])}${F("d_c","Cardio (min)")}</div>
- <textarea id="d_o" rows="2" placeholder="Observaciones, molestias, comida extra…"></textarea><br><br><button class="btn" onclick="saveDaily()">Guardar</button></div>
- <div class="card scroll"><table><tr><th>Fecha</th><th>Peso</th><th>Energía</th><th>Agua</th><th>Pasos</th><th>Dieta</th></tr>${(data||[]).map(d=>`<tr><td>${d.fecha}</td><td>${d.peso??"-"}</td><td>${d.energia??"-"}</td><td>${d.agua_l??"-"}</td><td>${d.pasos??"-"}</td><td>${d.sigue_dieta??"-"}</td></tr>`).join("")}</table></div>`},
-async c_revision(){const{data}=await sb.from("reviews").select("*").eq("client_id",me.id).order("fecha",{ascending:false});
- return`<h1><em>Revisiones</em></h1><div class="card"><div class="row">${F("r_f","Fecha","date",today())}${F("r_p","Peso (kg)")}${F("r_ad","Adherencia dieta %")}${F("r_at","Adherencia entreno %")}${F("r_e","Energía 1-10")}${F("r_h","Hambre 1-10")}${F("r_s","Sueño 1-10")}${F("r_st","Estrés 1-10")}</div>
- <textarea id="r_c" rows="3" placeholder="Dificultades, cambios físicos, comentarios…"></textarea><br><br><button class="btn" onclick="saveRev()">Enviar revisión</button></div>
- ${(data||[]).map(r=>`<div class="card"><b>${r.fecha} · ${r.peso??"-"} kg</b> <span class="tag ${r.estado=="completada"?"":"off"}">${r.estado}</span><p class="muted">${esc(r.comentarios)}</p>${r.feedback?`<p><b style="color:var(--lime)">Feedback:</b> ${esc(r.feedback)}</p>`:""}</div>`).join("")}`},
+async c_revision(){
+ const {data:reviews,error}=await sb.from("reviews").select("*").eq("client_id",me.id).order("fecha",{ascending:false});
+ if(error)console.error(error);
+ const ids=(reviews||[]).map(x=>x.id);
+ let photos=[];
+ if(ids.length){const q=await sb.from("photos").select("*").in("review_id",ids).order("fecha",{ascending:false});for(const ph of q.data||[]){const signed=await sb.storage.from("progress-photos").createSignedUrl(ph.path,3600);photos.push({...ph,url:signed.data?.signedUrl})}}
+ const photoHtml=(photos||[]).map(ph=>'<a href="'+esc(ph.url||"#")+'" target="_blank" rel="noopener" style="display:block"><img src="'+esc(ph.url||"")+'" alt="'+esc(ph.tipo||"Foto de revisión")+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px"></a>').join("");
+ return `<h1>Mi <em>revisión</em></h1>
+ <p class="muted">Completa todo en un solo envío. Tu entrenador recibirá tus datos, medidas, fotografías y sensaciones juntos.</p>
+ <form class="card" id="fullReviewForm" onsubmit="event.preventDefault();submitFullReview()">
+  <h2 style="margin-top:0">1. Datos generales</h2>
+  <div class="row">${F("r_f","Fecha de revisión","date",today())}${F("r_p","Peso actual (kg)")}${F("r_ad","Adherencia a la dieta (%)")}${F("r_at","Adherencia al entrenamiento (%)")}</div>
+  <h2>2. Medidas corporales (cm)</h2>
+  <p class="muted">Introduce las medidas actuales. Si alguna no corresponde, déjala vacía.</p>
+  <div class="row">${F("mWaist","Cintura")}${F("mHip","Cadera")}${F("mGlute","Glúteos")}${F("mThigh","Muslo")}${F("mArm","Brazo")}${F("mChest","Pecho")}</div>
+  <h2>3. Fotografías de progreso</h2>
+  <p class="muted">Sube las fotos con buena luz y, si es posible, con la misma distancia y postura de revisiones anteriores. Máximo 12 MB por foto.</p>
+  <div class="row">
+   <label>Frontal<input id="reviewFront" type="file" accept="image/*"></label>
+   <label>Lateral<input id="reviewSide" type="file" accept="image/*"></label>
+   <label>Espalda<input id="reviewBack" type="file" accept="image/*"></label>
+   <label>Otras fotos<input id="reviewExtra" type="file" accept="image/*" multiple></label>
+  </div>
+  <h2>4. Sensaciones y bienestar</h2>
+  <div class="row">${F("r_e","Energía (1-10)")}${F("r_h","Hambre (1-10)")}${F("r_dig","Digestiones (1-10)")}${F("r_s","Calidad del sueño (1-10)")}${F("r_hours","Horas de sueño")}${F("r_st","Estrés (1-10)")}${F("r_rec","Recuperación (1-10)")}${F("r_mood","Ánimo (1-10)")}</div>
+  <label>Sensaciones generales<textarea id="r_sens" rows="3" placeholder="¿Cómo te has encontrado esta semana? Energía, motivación, apetito, cansancio…"></textarea></label>
+  <h2 style="margin-top:20px">5. Nutrición y actividad</h2>
+  <div class="row">
+   ${SEL("d_d","¿Has seguido la dieta?",[["si","Sí"],["parcial","Parcialmente"],["no","No"]])}
+   ${SEL("d_en","¿Has completado los entrenamientos?",[["true","Sí"],["false","No"]])}
+   ${F("d_w","Agua diaria (L)")}${F("d_pa","Media de pasos diarios")}${F("d_c","Cardio semanal (min)")}${F("d_ans","Ansiedad (1-10)")}${F("d_ret","Retención de líquidos (1-10)")}
+  </div>
+  <label>Entrenamiento realizado / actividad extra<textarea id="d_type" rows="2" placeholder="Entrenamientos completados, actividad adicional o cambios…"></textarea></label>
+  <label>Incidencias con la alimentación<textarea id="d_food" rows="2" placeholder="Comidas fuera del plan, hambre, antojos, dificultades…"></textarea></label>
+  <h2 style="margin-top:20px">6. Cambios y comentarios</h2>
+  <label>Dificultades de la semana<textarea id="r_diff" rows="2"></textarea></label>
+  <label>Cambios físicos que has observado<textarea id="r_changes" rows="2"></textarea></label>
+  <label>Molestias, ciclo, lesiones o cualquier otra observación<textarea id="d_misc" rows="2"></textarea></label>
+  <label>Comentario final para tu entrenador<textarea id="r_comments" rows="3" placeholder="Cuéntale todo lo que consideres importante…"></textarea></label>
+  <button class="btn" id="sendFullReview" type="submit" style="width:100%;margin-top:14px">Enviar revisión completa</button>
+ </form>
+ <h2>Revisiones anteriores</h2>
+ ${(reviews||[]).map(r=>{
+  const rp=photos.filter(ph=>ph.review_id===r.id);
+  return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>'+esc(r.fecha)+' · '+(r.peso??"—")+' kg</b><span class="tag '+(r.estado==="completada"?"":"off")+'">'+esc(r.estado)+'</span></div>'+
+   '<p class="muted">Dieta '+(r.adh_dieta??"—")+'% · Entrenamiento '+(r.adh_entreno??"—")+'% · Energía '+(r.energia??"—")+'/10 · Hambre '+(r.hambre??"—")+'/10</p>'+
+   (r.sensaciones?'<p>'+esc(r.sensaciones)+'</p>':'')+(r.comentarios?'<p>'+esc(r.comentarios)+'</p>':'')+
+   (rp.length?'<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));margin-top:12px">'+rp.map(ph=>'<div><a href="'+esc(ph.url||"#")+'" target="_blank" rel="noopener"><img src="'+esc(ph.url||"")+'" alt="'+esc(ph.tipo||"Foto")+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px"></a><small class="muted">'+esc(ph.tipo||"Foto")+'</small></div>').join("")+'</div>':'')+
+   (r.feedback?'<div class="diet-note"><b>Respuesta del entrenador</b><br>'+esc(r.feedback)+'</div>':'')+'</div>'
+ }).join("")||'<div class="card muted">Todavía no has enviado ninguna revisión.</div>'}`;
+},
 async c_mensajes(){return`<h1><em>Mensajes</em></h1>`+await msgsV(me.id)},
 async a_inicio(){const[c,r]=await Promise.all([sb.from("profiles").select("id,estado").eq("role","client"),sb.from("reviews").select("id").eq("estado","pendiente")]);
  return`<h1>Resumen <em>general</em></h1><div class="grid"><div class="card"><h3>Clientes</h3><div class="stat">${c.data?.length||0}</div></div><div class="card"><h3>Activos</h3><div class="stat">${(c.data||[]).filter(x=>x.estado=="activo").length}</div></div><div class="card"><h3>Revisiones pendientes</h3><div class="stat">${r.data?.length||0}</div></div></div>`},
@@ -159,15 +202,67 @@ async c_entreno(){const {data}=await sb.from("plans").select("*").eq("client_id"
 async c_progreso(){const [m,p]=await Promise.all([sb.from("measurements").select("*").eq("client_id",me.id).order("fecha",{ascending:false}).limit(20),sb.from("photos").select("*").eq("client_id",me.id).order("fecha",{ascending:false}).limit(30)]);let pics=[];for(const x of p.data||[]){const {data}=await sb.storage.from("progress-photos").createSignedUrl(x.path,3600);pics.push({...x,url:data?.signedUrl})}return `<h1>Mi <em>evolución</em></h1><div class="card"><h3>Registrar medidas (cm)</h3><div class="row">${F("mDate","Fecha","date",today())}${F("mWaist","Cintura")}${F("mHip","Cadera")}${F("mGlute","Glúteos")}${F("mThigh","Muslo")}${F("mArm","Brazo")}${F("mChest","Pecho")}</div><button class="btn" onclick="saveMeasurements()">Guardar medidas</button></div><div class="card scroll"><h3>Historial de medidas</h3><table><tr><th>Fecha</th><th>Cintura</th><th>Cadera</th><th>Glúteos</th><th>Muslo</th><th>Brazo</th><th>Pecho</th></tr>${(m.data||[]).map(x=>'<tr><td>'+x.fecha+'</td><td>'+ (x.cintura??"—")+'</td><td>'+(x.cadera??"—")+'</td><td>'+(x.gluteos??"—")+'</td><td>'+(x.muslo??"—")+'</td><td>'+(x.brazo??"—")+'</td><td>'+(x.pecho??"—")+'</td></tr>').join("")}</table></div><div class="card"><h3>Fotografías de progreso</h3><label>Subir fotografía<input id="progressPhoto" type="file" accept="image/*"></label><button class="btn" onclick="uploadProgressPhoto()">Subir foto</button><div class="grid" style="margin-top:16px">${pics.map(x=>'<div><img src="'+x.url+'" alt="Fotografía de progreso '+x.fecha+'" style="width:100%;border-radius:10px;object-fit:cover"><p class="muted">'+x.fecha+' · '+esc(x.tipo||"Progreso")+'</p></div>').join("")}</div></div>`},
 async c_perfil(){return `<h1>Mi <em>perfil</em></h1><div class="card"><div class="row">${F("myName","Nombre","text",esc(me.nombre))}${F("mySurname","Apellidos","text",esc(me.apellidos))}${F("myPhone","Teléfono","tel",esc(me.telefono))}${F("myHeight","Altura (cm)","number",me.altura_cm||"")}${F("myWeight","Peso inicial (kg)","number",me.peso_inicial||"")}${F("myJob","Profesión","text",esc(me.profesion))}</div><label>Objetivo<textarea id="myGoal" rows="2">${esc(me.objetivo)}</textarea></label><label>Lesiones o molestias<textarea id="myInjuries" rows="2">${esc(me.lesiones)}</textarea></label><label>Preferencias alimentarias<textarea id="myFoodPrefs" rows="2">${esc(me.preferencias_alimentarias)}</textarea></label><br><button class="btn" onclick="saveMyProfile()">Guardar perfil</button><p class="muted">Correo: ${esc(me.email)}</p></div>`}
 };
-async function clientV(id){const[p,d,r]=await Promise.all([sb.from("profiles").select("*").eq("id",id).single(),sb.from("daily_logs").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(14),sb.from("reviews").select("*").eq("client_id",id).order("fecha",{ascending:false})]);const c=p.data;
- return`<button class="btn ghost sm" onclick="sel=null;draw()">← Clientes</button><h1>${esc(c.nombre)||esc(c.email)}</h1>
+async function clientV(id){
+ const [p,d,r,m,ph]=await Promise.all([
+  sb.from("profiles").select("*").eq("id",id).single(),
+  sb.from("daily_logs").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(14),
+  sb.from("reviews").select("*").eq("client_id",id).order("fecha",{ascending:false}),
+  sb.from("measurements").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(20),
+  sb.from("photos").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(60)
+ ]);
+ const c=p.data,photos=[];
+ for(const x of ph.data||[]){const signed=await sb.storage.from("progress-photos").createSignedUrl(x.path,3600);photos.push({...x,url:signed.data?.signedUrl});}
+ return `<button class="btn ghost sm" onclick="sel=null;draw()">← Clientes</button><h1>${esc(c.nombre)||esc(c.email)}</h1>
  <div class="card"><h3>Ficha</h3><div class="row">${F("p_n","Nombre","text",esc(c.nombre))}${F("p_o","Objetivo","text",esc(c.objetivo))}${F("p_pi","Peso inicial",undefined,c.peso_inicial??"")}${F("p_al","Altura (cm)",undefined,c.altura_cm??"")}${F("p_t","Teléfono","text",esc(c.telefono))}</div><button class="btn" onclick="saveFicha('${id}')">Guardar ficha</button></div>
- <div class="card scroll"><h3>Registros diarios</h3><table><tr><th>Fecha</th><th>Peso</th><th>Energía</th><th>Hambre</th><th>Sueño</th><th>Agua</th><th>Pasos</th><th>Dieta</th></tr>${(d.data||[]).map(x=>`<tr><td>${x.fecha}</td><td>${x.peso??"-"}</td><td>${x.energia??"-"}</td><td>${x.hambre??"-"}</td><td>${x.sueno??"-"}</td><td>${x.agua_l??"-"}</td><td>${x.pasos??"-"}</td><td>${x.sigue_dieta??"-"}</td></tr>`).join("")}</table></div>
- ${(r.data||[]).map(x=>`<div class="card"><b>${x.fecha} · ${x.peso??"-"} kg</b> <span class="tag ${x.estado=="completada"?"":"off"}">${x.estado}</span><p class="muted">Dieta ${x.adh_dieta??"-"}% · Entreno ${x.adh_entreno??"-"}% · ${esc(x.comentarios)}</p><textarea id="fb${x.id}" rows="2" placeholder="Feedback…">${esc(x.feedback)}</textarea><br><br><button class="btn sm" onclick="fb('${x.id}')">Guardar feedback y completar</button></div>`).join("")}
- <h3>Mensajes</h3>`+await msgsV(id)}
+ <h2>Revisiones completas</h2>
+ ${(r.data||[]).map(x=>{
+  const rp=photos.filter(z=>z.review_id===x.id),measurement=(m.data||[]).find(z=>z.fecha===x.fecha);
+  return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>'+esc(x.fecha)+' · '+(x.peso??"—")+' kg</b><span class="tag '+(x.estado==="completada"?"":"off")+'">'+esc(x.estado)+'</span></div>'+
+   '<p>Dieta '+(x.adh_dieta??"—")+'% · Entrenamiento '+(x.adh_entreno??"—")+'% · Energía '+(x.energia??"—")+'/10 · Hambre '+(x.hambre??"—")+'/10 · Sueño '+(x.sueno??"—")+'/10 · Estrés '+(x.estres??"—")+'/10</p>'+
+   (measurement?'<p class="muted">Medidas (cm): cintura '+(measurement.cintura??"—")+' · cadera '+(measurement.cadera??"—")+' · glúteos '+(measurement.gluteos??"—")+' · muslo '+(measurement.muslo??"—")+' · brazo '+(measurement.brazo??"—")+' · pecho '+(measurement.pecho??"—")+'</p>':'')+
+   (x.sensaciones?'<p><b>Sensaciones:</b> '+esc(x.sensaciones)+'</p>':'')+(x.dificultades?'<p><b>Dificultades:</b> '+esc(x.dificultades)+'</p>':'')+(x.cambios_fisicos?'<p><b>Cambios físicos:</b> '+esc(x.cambios_fisicos)+'</p>':'')+(x.comentarios?'<p><b>Comentarios:</b> '+esc(x.comentarios)+'</p>':'')+
+   (rp.length?'<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(110px,1fr))">'+rp.map(z=>'<div><a href="'+esc(z.url||"#")+'" target="_blank" rel="noopener"><img src="'+esc(z.url||"")+'" alt="'+esc(z.tipo||"Foto")+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px"></a><small class="muted">'+esc(z.tipo||"Foto")+'</small></div>').join("")+'</div>':'<p class="muted">Sin fotografías adjuntas.</p>')+
+   '<label>Feedback del entrenador<textarea id="fb'+x.id+'" rows="2" placeholder="Escribe tu feedback…">'+esc(x.feedback)+'</textarea></label><br><br><button class="btn sm" onclick="fb(\''+x.id+'\')">Guardar feedback y completar</button></div>'
+ }).join("")||'<div class="card muted">Este cliente todavía no ha enviado revisiones.</div>'}
+ <div class="card scroll"><h3>Registros de actividad recientes</h3><table><tr><th>Fecha</th><th>Peso</th><th>Energía</th><th>Hambre</th><th>Sueño</th><th>Agua</th><th>Pasos</th><th>Dieta</th></tr>${(d.data||[]).map(x=>'<tr><td>'+x.fecha+'</td><td>'+ (x.peso??"—")+'</td><td>'+(x.energia??"—")+'</td><td>'+(x.hambre??"—")+'</td><td>'+(x.sueno??"—")+'</td><td>'+(x.agua_l??"—")+'</td><td>'+(x.pasos??"—")+'</td><td>'+(x.sigue_dieta??"—")+'</td></tr>').join("")}</table></div>
+ <h3>Mensajes</h3>`+await msgsV(id)
+}
 async function setEstado(id,estado){if(ok(await sb.from("profiles").update({estado}).eq("id",id)))draw()}
 async function saveFicha(id){if(ok(await sb.from("profiles").update({nombre:sv("p_n"),objetivo:sv("p_o"),peso_inicial:nv("p_pi"),altura_cm:nv("p_al"),telefono:sv("p_t")}).eq("id",id)))alert("Guardado")}
 async function fb(id){if(ok(await sb.from("reviews").update({feedback:sv("fb"+id),estado:"completada"}).eq("id",id)))draw()}
+async function submitFullReview(){
+ const btn=$("#sendFullReview");if(!btn)return;
+ const date=sv("r_f");if(!date)return alert("Selecciona la fecha de revisión.");
+ const files=[
+  ...[["Frontal",$("#reviewFront")?.files?.[0]],["Lateral",$("#reviewSide")?.files?.[0]],["Espalda",$("#reviewBack")?.files?.[0]]].filter(x=>x[1]),
+  ...Array.from($("#reviewExtra")?.files||[]).map(f=>["Adicional · "+f.name,f])
+ ];
+ if(files.some(([_,f])=>!f.type.startsWith("image/")||f.size>12*1024*1024))return alert("Todas las fotos deben ser imágenes de menos de 12 MB.");
+ btn.disabled=true;btn.textContent="Enviando revisión…";
+ let reviewId=null,issues=[];
+ try{
+  const review={client_id:me.id,fecha:date,peso:nv("r_p"),adh_dieta:nv("r_ad"),adh_entreno:nv("r_at"),energia:nv("r_e"),hambre:nv("r_h"),digestiones:nv("r_dig"),sueno:nv("r_s"),estres:nv("r_st"),dificultades:sv("r_diff"),cambios_fisicos:sv("r_changes"),sensaciones:sv("r_sens"),comentarios:[sv("r_comments"),sv("d_food"),sv("d_misc")].filter(Boolean).join("\n\n"),estado:"pendiente"};
+  const created=await sb.from("reviews").insert(review).select("id").single();
+  if(created.error)throw new Error("No se pudo guardar la revisión: "+created.error.message);
+  reviewId=created.data.id;
+  const daily={client_id:me.id,fecha:date,peso:nv("r_p"),energia:nv("r_e"),hambre:nv("r_h"),sueno:nv("r_s"),horas_sueno:nv("r_hours"),estres:nv("r_st"),digestiones:nv("r_dig"),recuperacion:nv("r_rec"),animo:nv("r_mood"),sigue_dieta:sv("d_d"),agua_l:nv("d_w"),entreno:sv("d_en")==="true",tipo_entreno:sv("d_type"),cardio_min:nv("d_c"),pasos:nv("d_pa"),ansiedad:nv("d_ans"),retencion:nv("d_ret"),obs_nutricion:sv("d_food"),molestias:sv("d_misc"),observaciones:sv("r_sens")};
+  const dr=await sb.from("daily_logs").upsert(daily,{onConflict:"client_id,fecha"});
+  if(dr.error)issues.push("Registro de actividad: "+dr.error.message);
+  const measures={client_id:me.id,fecha:date,cintura:nv("mWaist"),cadera:nv("mHip"),gluteos:nv("mGlute"),muslo:nv("mThigh"),brazo:nv("mArm"),pecho:nv("mChest")};
+  if(Object.values(measures).slice(2).some(v=>v!==null)){const mr=await sb.from("measurements").insert(measures);if(mr.error)issues.push("Medidas: "+mr.error.message);}
+  for(let i=0;i<files.length;i++){
+   const [kind,file]=files[i],safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_"),path=me.id+"/"+Date.now()+"-"+i+"-"+safe;
+   const up=await sb.storage.from("progress-photos").upload(path,file,{contentType:file.type,upsert:false});
+   if(up.error){issues.push("Foto "+kind+": "+up.error.message);continue;}
+   const pr=await sb.from("photos").insert({client_id:me.id,fecha:date,tipo:kind,path,review_id:reviewId});
+   if(pr.error){issues.push("Guardar foto "+kind+": "+pr.error.message);await sb.storage.from("progress-photos").remove([path]);}
+  }
+  if(issues.length)alert("La revisión principal se ha guardado, pero hay apartados que no se han podido guardar:\n"+issues.join("\n"));
+  else alert("¡Revisión completa enviada correctamente!");
+  tab="revision";await draw();
+ }catch(e){alert(e.message||"No se pudo enviar la revisión.");}
+ finally{const current=$("#sendFullReview");if(current){current.disabled=false;current.textContent="Enviar revisión completa";}}
+}
 async function saveDaily(){const r=await sb.from("daily_logs").upsert({client_id:me.id,fecha:sv("d_f"),peso:nv("d_p"),energia:nv("d_e"),hambre:nv("d_h"),sueno:nv("d_s"),horas_sueno:nv("d_hs"),estres:nv("d_st"),animo:nv("d_a"),sigue_dieta:sv("d_d"),agua_l:nv("d_w"),pasos:nv("d_pa"),entreno:sv("d_en")=="true",cardio_min:nv("d_c"),observaciones:sv("d_o")},{onConflict:"client_id,fecha"});if(ok(r))draw()}
 async function saveRev(){if(ok(await sb.from("reviews").insert({client_id:me.id,fecha:sv("r_f"),peso:nv("r_p"),adh_dieta:nv("r_ad"),adh_entreno:nv("r_at"),energia:nv("r_e"),hambre:nv("r_h"),sueno:nv("r_s"),estres:nv("r_st"),comentarios:sv("r_c")}))){alert("Revisión enviada");draw()}}
 
