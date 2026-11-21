@@ -143,7 +143,8 @@ async function draw(){const nav=$("#nav"),app=$("#app");$("#out").style.display=
  if(inviteMode||recoveryMode){nav.innerHTML="";app.innerHTML=inviteV();return}
  if(!me){nav.innerHTML="";app.innerHTML=authV();return}
  if(!me.consentimiento_rgpd_at){nav.innerHTML="";app.innerHTML=`<div class="auth card"><h3>Protección de datos</h3><p>Para usar la plataforma necesito tu consentimiento para tratar tus datos de salud, medidas y fotografías con el fin de gestionar tu asesoría. Puedes retirarlo cuando quieras.</p><label><input type="checkbox" id="cons" style="width:auto"> Acepto el tratamiento de mis datos</label><br><br><button class="btn" onclick="consent()">Continuar</button></div>`;return}
- const isAdmin=me.role=="admin",T=isAdmin?[...AT,...MT]:CT;
+ const isAdmin=me.role=="admin",T=isAdmin?[["clientes","Clientes"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]]:CT;
+ if(isAdmin&&!T.some(([k])=>k===tab))tab="clientes";
  nav.innerHTML=T.map(([k,l])=>"<button class=\"" + (tab==k?"on":"") + "\" onclick=\"tab=\'" + k + "\';sel=null;draw()\">" + l + "</button>").join("");
  app.innerHTML='<p class="muted">Cargando…</p>';
  const view=isAdmin&&tab.startsWith("mi_")?"c_"+tab.slice(3):(isAdmin?"a_":"c_")+tab;
