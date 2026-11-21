@@ -184,7 +184,7 @@ async c_dieta(){
  return `<h1>Mi <em>alimentación</em></h1>
  <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><span class="tag">PLAN ACTIVO · V${p.version||1}</span><h2 style="margin:12px 0 3px">${esc(p.nombre)}</h2><p class="muted" style="margin:0">Tu guía de comidas y cantidades para el día</p></div><div style="font-size:30px">🥗</div></div>
-  ${sets?`<div class="row" style="margin-top:18px"><label>Tipo de día<select id="dietSetSelect" onchange="dietSet=this.value;draw()"><option value="training" ${dietSet==="training"?"selected":""}>Día de entrenamiento</option><option value="recovery" ${dietSet==="recovery"?"selected":""}>Día de recuperación</option></select></label></div>`:""}
+  ${sets?`<div class="row" style="margin-top:18px"><label>Tipo de día<select id="dietSetSelect" onchange="dietSet=this.value;draw()"><option value="training" ${dietSet==="training"?"selected":""}>Día de entrenamiento</option><option value="recovery" ${dietSet==="recovery"?"selected":""}>Día de descanso</option></select></label></div>`:""}
   <div class="diet-summary">
    <div class="diet-target"><small>🔥 KCAL OBJETIVO</small><strong>${t.kcal||"—"}</strong><small>kcal / día</small></div>
    <div class="diet-target"><small>💪 PROTEÍNA</small><strong>${t.protein||"—"} g</strong><small>objetivo diario</small></div>
