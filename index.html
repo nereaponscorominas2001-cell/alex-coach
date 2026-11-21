@@ -59,6 +59,40 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .exercise-card{background:linear-gradient(135deg,rgba(182,243,107,.10),var(--g1) 58%);border:1px solid rgba(182,243,107,.42);border-left:5px solid #B6F36B;padding:20px 20px 18px;margin:14px 0;border-radius:13px;box-shadow:0 5px 18px rgba(0,0,0,.14)}
 .exercise-card .exercise-name{font-size:clamp(22px,2.8vw,28px);line-height:1.22;font-weight:900;letter-spacing:.1px;color:#B6F36B!important;margin:0 0 13px;text-wrap:balance}
 @media(max-width:600px){.exercise-card{padding:17px 15px}.exercise-card .exercise-name{font-size:22px}}
+
+/* Seguimiento visual de revisiones */
+.review-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.review-kpi{background:linear-gradient(145deg,#1b1b1b,#0c0c0c);border:1px solid #303030;border-radius:14px;padding:17px}
+.review-kpi small,.review-metric small{display:block;color:#999;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.review-kpi strong{display:block;font-size:clamp(24px,4vw,34px);color:var(--lime);line-height:1.2;margin:7px 0}
+.review-kpi strong i,.review-metric strong i{font-size:13px;font-style:normal;color:#aaa}
+.review-kpi span{font-size:12px;color:#888}
+.review-positive{color:var(--lime)!important}
+.review-chart-card{padding:20px}
+.review-section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.review-section-head h2,.review-form-title h2{font-size:20px;margin:0 0 4px}
+.review-section-head p,.review-form-title p{margin:0;font-size:13px}
+.review-accent,.review-count,.review-form-number{color:var(--lime);font-weight:900;letter-spacing:.1em}
+.review-chart-wrap{background:#090909;border:1px solid #292929;border-radius:12px;padding:14px 12px 10px}
+.review-chart-meta{display:flex;justify-content:space-between;color:#888;font-size:11px;margin:0 4px 5px}
+.review-empty{padding:35px 12px;text-align:center;color:#888;background:#090909;border-radius:10px}
+.review-metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
+.review-metric{background:#090909;border:1px solid #303030;border-radius:11px;padding:13px}
+.review-metric strong{display:block;font-size:24px;color:var(--lime);margin:5px 0}
+.review-metric span{font-size:11px}
+.review-form-title{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:22px}
+.review-step{font-size:11px;letter-spacing:.12em;color:var(--lime);font-weight:900}
+#fullReviewForm h3{color:var(--lime);margin:24px 0 10px;font-size:13px}
+.review-history-card{background:#171717;border:1px solid #303030;border-radius:13px;padding:17px;margin:12px 0}
+.review-history-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.review-history-head h3{font-size:20px;color:#fff;margin:4px 0}
+.review-pill-row{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0}
+.review-pill{background:#252525;border-radius:8px;padding:6px 9px;font-size:11px;color:#bbb}
+.review-pill b{color:var(--lime);margin-left:3px}
+.review-photo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:9px;margin-top:12px}
+.review-photo-grid a{color:#aaa;text-decoration:none;font-size:11px}
+.review-photo-grid img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:9px;display:block;margin-bottom:5px}
+@media(max-width:620px){.review-overview{grid-template-columns:1fr 1fr}.review-overview .review-kpi:last-child{grid-column:1/-1}.review-form-title{display:block}.review-form-number{display:block;margin-top:12px}}
 </style></head><body>
 <header><div class="logo">ALEX VICENT <b>COACH</b></div><button class="btn ghost sm" id="out" style="display:none" onclick="sb.auth.signOut()">Salir</button></header>
 <nav id="nav"></nav><main id="app"></main>
@@ -102,55 +136,67 @@ async c_inicio(){const[d,p,n]=await Promise.all([sb.from("daily_logs").select("f
  return`<h1>Hola${me.nombre?", <em>"+esc(me.nombre)+"</em>":""}</h1><div class="grid"><div class="card"><h3>Peso actual</h3><div class="stat">${d.data?.[0]?.peso??"-"}</div></div><div class="card"><h3>Objetivo</h3><b>${esc(me.objetivo)||"-"}</b></div><div class="card"><h3>Avisos nuevos</h3><div class="stat">${n.data?.length||0}</div></div></div>
  <div class="card"><h3>Tus planes</h3>${(p.data||[]).map(x=>`<p><span class="tag">${x.tipo}</span> ${esc(x.nombre)}</p>`).join("")||'<p class="muted">Tu entrenadora aún no te ha asignado planes.</p>'}</div>`},
 async c_revision(){
- const {data:reviews,error}=await sb.from("reviews").select("*").eq("client_id",me.id).order("fecha",{ascending:false});
- if(error)console.error(error);
- const ids=(reviews||[]).map(x=>x.id);
- let photos=[];
+ const [{data:reviews,error:re},{data:logs,error:le},{data:measurements,error:measErr}]=await Promise.all([
+  sb.from("reviews").select("*").eq("client_id",me.id).order("fecha",{ascending:false}).limit(100),
+  sb.from("daily_logs").select("fecha,peso,energia,hambre,sueno,horas_sueno,estres,digestiones,recuperacion,animo,pasos,agua_l,sigue_dieta,entreno").eq("client_id",me.id).not("peso","is",null).order("fecha",{ascending:true}).limit(240),
+  sb.from("measurements").select("*").eq("client_id",me.id).order("fecha",{ascending:false}).limit(40)
+ ]);
+ if(re)console.error(re);if(le)console.error(le);if(measErr)console.error(measErr);
+ const ids=(reviews||[]).map(x=>x.id);let photos=[];
  if(ids.length){const q=await sb.from("photos").select("*").in("review_id",ids).order("fecha",{ascending:false});for(const ph of q.data||[]){const signed=await sb.storage.from("progress-photos").createSignedUrl(ph.path,3600);photos.push({...ph,url:signed.data?.signedUrl})}}
- const photoHtml=(photos||[]).map(ph=>'<a href="'+esc(ph.url||"#")+'" target="_blank" rel="noopener" style="display:block"><img src="'+esc(ph.url||"")+'" alt="'+esc(ph.tipo||"Foto de revisión")+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px"></a>').join("");
- return `<h1>Mi <em>revisión</em></h1>
- <p class="muted">Completa todo en un solo envío. Tu entrenador recibirá tus datos, medidas, fotografías y sensaciones juntos.</p>
+ const byDate=new Map();(logs||[]).forEach(x=>{if(x.peso!==null&&x.peso!==undefined)byDate.set(x.fecha,Number(x.peso))});
+ (reviews||[]).forEach(x=>{if(x.peso!==null&&x.peso!==undefined)byDate.set(x.fecha,Number(x.peso))});
+ const points=[...byDate.entries()].map(([fecha,peso])=>({fecha,peso})).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+ const first=points[0],last=points[points.length-1],change=first&&last?last.peso-first.peso:null;
+ const fmt=n=>Number(n).toLocaleString("es-ES",{maximumFractionDigits:1});
+ let chart='<div class="review-empty">Aún no hay registros de peso. Cuando guardes tu primera revisión aparecerá aquí la evolución.</div>';
+ if(points.length){
+  const vals=points.map(x=>x.peso),min=Math.min(...vals),max=Math.max(...vals),pad=Math.max(.5,(max-min)*.18),lo=min-pad,hi=max+pad;
+  const W=760,H=250,L=48,R=18,T=20,B=42,xx=i=>L+(points.length===1?0:i/(points.length-1))*(W-L-R),yy=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const coords=points.map((p,i)=>xx(i).toFixed(1)+","+yy(p.peso).toFixed(1)).join(" ");
+  const area=L+","+yy(points[0].peso)+" "+coords+" "+xx(points.length-1)+","+(H-B)+" "+L+","+(H-B);
+  const grid=[0,.5,1].map(t=>{const y=T+t*(H-T-B),v=hi-t*(hi-lo);return '<line x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'" stroke="#303030" stroke-dasharray="4 5"/><text x="'+(L-9)+'" y="'+(y+4)+'" fill="#888" font-size="11" text-anchor="end">'+fmt(v)+'</text>'}).join("");
+  const dots=points.map((p,i)=>'<circle cx="'+xx(i)+'" cy="'+yy(p.peso)+'" r="'+(i===points.length-1?5:3.5)+'" fill="'+(i===points.length-1?'#B6F36B':'#d7e9c4')+'"><title>'+esc(p.fecha)+' · '+fmt(p.peso)+' kg</title></circle>').join("");
+  const labels=[points[0],points[Math.floor((points.length-1)/2)],points[points.length-1]].filter((p,i,a)=>a.findIndex(q=>q.fecha===p.fecha)===i).map((p)=>'<text x="'+xx(points.indexOf(p))+'" y="'+(H-12)+'" fill="#999" font-size="11" text-anchor="middle">'+esc(p.fecha.slice(5).replace("-","/"))+'</text>').join("");
+  chart='<div class="review-chart-wrap"><div class="review-chart-meta"><span>'+esc(points[0].fecha)+'</span><span>'+points.length+' registros</span><span>'+esc(points[points.length-1].fecha)+'</span></div><svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Gráfica de evolución del peso en kilogramos" style="width:100%;height:auto;display:block">'+grid+'<polygon points="'+area+'" fill="rgba(182,243,107,.10)"/><polyline points="'+coords+'" fill="none" stroke="#B6F36B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>'+dots+labels+'</svg><p class="muted" style="font-size:12px;margin:0">Cada punto representa un peso registrado. La gráfica combina registros diarios y revisiones.</p></div>';
+ }
+ const latest=measurements?.[0],previous=measurements?.[1],metric=[["Cintura","cintura"],["Cadera","cadera"],["Glúteos","gluteos"],["Muslo","muslo"],["Brazo","brazo"],["Pecho","pecho"]];
+ const measureCards=metric.filter(([n,k])=>latest&&latest[k]!=null).map(([n,k])=>{const v=Number(latest[k]),old=previous?.[k]!=null?Number(previous[k]):null,d=old===null?null:v-old;return '<div class="review-metric"><small>'+n+'</small><strong>'+fmt(v)+' <i>cm</i></strong><span class="muted">'+(d===null?'Primer registro':(d>0?'+':'')+fmt(d)+' cm vs. anterior')+'</span></div>'}).join("");
+ const rpHtml=(reviews||[]).map(r=>{
+  const rp=photos.filter(ph=>ph.review_id===r.id),weight=r.peso!=null?fmt(r.peso)+' kg':'Peso no indicado';
+  const adherence=[r.adh_dieta!=null?'Dieta '+r.adh_dieta+'%':null,r.adh_entreno!=null?'Entreno '+r.adh_entreno+'%':null].filter(Boolean).join(' · ');
+  return '<article class="review-history-card"><div class="review-history-head"><div><small class="muted">REVISIÓN · '+esc(r.fecha)+'</small><h3>'+weight+'</h3></div><span class="tag '+(r.estado==="completada"?"":"off")+'">'+(r.estado==="completada"?"Revisada":"Pendiente")+'</span></div>'+
+   (adherence?'<p class="muted">'+adherence+'</p>':'')+
+   '<div class="review-pill-row">'+[['Energía',r.energia],['Hambre',r.hambre],['Digestión',r.digestiones],['Sueño',r.sueno],['Estrés',r.estres]].filter(x=>x[1]!=null).map(x=>'<span class="review-pill">'+x[0]+' <b>'+x[1]+'/10</b></span>').join("")+'</div>'+
+   (r.sensaciones?'<p>'+esc(r.sensaciones)+'</p>':'')+(r.dificultades?'<p><b>Dificultades:</b> '+esc(r.dificultades)+'</p>':'')+(r.cambios_fisicos?'<p><b>Cambios:</b> '+esc(r.cambios_fisicos)+'</p>':'')+(r.comentarios?'<p>'+esc(r.comentarios).replace(/\n/g,"<br>")+'</p>':'')+
+   (rp.length?'<div class="review-photo-grid">'+rp.map(ph=>'<a href="'+esc(ph.url||"#")+'" target="_blank" rel="noopener"><img src="'+esc(ph.url||"")+'" alt="'+esc(ph.tipo||"Foto de progreso")+'"><small>'+esc(ph.tipo||"Foto")+'</small></a>').join("")+'</div>':'')+
+   (r.feedback?'<div class="diet-note"><b>Respuesta de tu entrenador</b><p>'+esc(r.feedback)+'</p></div>':'')+'</article>';
+ }).join("");
+ return `<h1>Mi <em>progreso</em></h1>
+ <p class="muted">Tu evolución, medidas y revisiones en un solo lugar. Actualiza tus datos para ver cómo avanzas con el tiempo.</p>
+ <section class="review-overview">
+  <div class="review-kpi"><small>Último peso</small><strong>${last?fmt(last.peso)+' <i>kg</i>':'—'}</strong><span>${last?esc(last.fecha):'Sin registros todavía'}</span></div>
+  <div class="review-kpi"><small>Cambio total</small><strong class="${change===null?'':change>0?'':'review-positive'}">${change===null?'—':(change>0?'+':'')+fmt(change)+' <i>kg</i>'}</strong><span>${first&&last?'Desde '+esc(first.fecha):'Necesitas 2 registros'}</span></div>
+  <div class="review-kpi"><small>Revisiones enviadas</small><strong>${(reviews||[]).length}</strong><span>Historial de seguimiento</span></div>
+ </section>
+ <section class="card review-chart-card"><div class="review-section-head"><div><h2>Evolución del peso</h2><p class="muted">Observa la tendencia, no solo un dato aislado.</p></div><span class="review-accent">KG</span></div>${chart}</section>
+ <section class="card"><div class="review-section-head"><div><h2>Últimas medidas</h2><p class="muted">${latest?'Actualizadas el '+esc(latest.fecha):'Aún no has registrado medidas corporales.'}</p></div></div>
+  ${measureCards?'<div class="review-metrics-grid">'+measureCards+'</div>':'<p class="muted">Las medidas aparecerán aquí después de tu primera revisión con medidas.</p>'}
+ </section>
  <form class="card" id="fullReviewForm" onsubmit="event.preventDefault();submitFullReview()">
-  <h2 style="margin-top:0">1. Datos generales</h2>
-  <div class="row">${F("r_f","Fecha de revisión","date",today())}${F("r_p","Peso actual (kg)")}${F("r_ad","Adherencia a la dieta (%)")}${F("r_at","Adherencia al entrenamiento (%)")}</div>
-  <h2>2. Medidas corporales (cm)</h2>
-  <p class="muted">Introduce las medidas actuales. Si alguna no corresponde, déjala vacía.</p>
-  <div class="row">${F("mWaist","Cintura")}${F("mHip","Cadera")}${F("mGlute","Glúteos")}${F("mThigh","Muslo")}${F("mArm","Brazo")}${F("mChest","Pecho")}</div>
-  <h2>3. Fotografías de progreso</h2>
-  <p class="muted">Sube las fotos con buena luz y, si es posible, con la misma distancia y postura de revisiones anteriores. Máximo 12 MB por foto.</p>
-  <div class="row">
-   <label>Frontal<input id="reviewFront" type="file" accept="image/*"></label>
-   <label>Lateral<input id="reviewSide" type="file" accept="image/*"></label>
-   <label>Espalda<input id="reviewBack" type="file" accept="image/*"></label>
-   <label>Otras fotos<input id="reviewExtra" type="file" accept="image/*" multiple></label>
-  </div>
-  <h2>4. Sensaciones y bienestar</h2>
-  <div class="row">${F("r_e","Energía (1-10)")}${F("r_h","Hambre (1-10)")}${F("r_dig","Digestiones (1-10)")}${F("r_s","Calidad del sueño (1-10)")}${F("r_hours","Horas de sueño")}${F("r_st","Estrés (1-10)")}${F("r_rec","Recuperación (1-10)")}${F("r_mood","Ánimo (1-10)")}</div>
-  <label>Sensaciones generales<textarea id="r_sens" rows="3" placeholder="¿Cómo te has encontrado esta semana? Energía, motivación, apetito, cansancio…"></textarea></label>
-  <h2 style="margin-top:20px">5. Nutrición y actividad</h2>
-  <div class="row">
-   ${SEL("d_d","¿Has seguido la dieta?",[["si","Sí"],["parcial","Parcialmente"],["no","No"]])}
-   ${SEL("d_en","¿Has completado los entrenamientos?",[["true","Sí"],["false","No"]])}
-   ${F("d_w","Agua diaria (L)")}${F("d_pa","Media de pasos diarios")}${F("d_c","Cardio semanal (min)")}${F("d_ans","Ansiedad (1-10)")}${F("d_ret","Retención de líquidos (1-10)")}
-  </div>
-  <label>Entrenamiento realizado / actividad extra<textarea id="d_type" rows="2" placeholder="Entrenamientos completados, actividad adicional o cambios…"></textarea></label>
-  <label>Incidencias con la alimentación<textarea id="d_food" rows="2" placeholder="Comidas fuera del plan, hambre, antojos, dificultades…"></textarea></label>
-  <h2 style="margin-top:20px">6. Cambios y comentarios</h2>
-  <label>Dificultades de la semana<textarea id="r_diff" rows="2"></textarea></label>
-  <label>Cambios físicos que has observado<textarea id="r_changes" rows="2"></textarea></label>
-  <label>Molestias, ciclo, lesiones o cualquier otra observación<textarea id="d_misc" rows="2"></textarea></label>
-  <label>Comentario final para tu entrenador<textarea id="r_comments" rows="3" placeholder="Cuéntale todo lo que consideres importante…"></textarea></label>
-  <button class="btn" id="sendFullReview" type="submit" style="width:100%;margin-top:14px">Enviar revisión completa</button>
+  <div class="review-form-title"><div><span class="review-step">NUEVA REVISIÓN</span><h2>Cuéntanos cómo vas</h2><p class="muted">Rellena los apartados y envía todo junto a tu entrenador.</p></div><span class="review-form-number">01 / 06</span></div>
+  <h3>01 · Datos generales</h3><div class="row">${F("r_f","Fecha de revisión","date",today())}${F("r_p","Peso actual (kg)")}${F("r_ad","Adherencia a la dieta (%)")}${F("r_at","Adherencia al entrenamiento (%)")}</div>
+  <h3>02 · Medidas corporales <small>(cm)</small></h3><p class="muted">Introduce las medidas actuales. Si alguna no corresponde, déjala vacía.</p><div class="row">${F("mWaist","Cintura")}${F("mHip","Cadera")}${F("mGlute","Glúteos")}${F("mThigh","Muslo")}${F("mArm","Brazo")}${F("mChest","Pecho")}</div>
+  <h3>03 · Fotografías de progreso</h3><p class="muted">Mantén la misma luz, distancia y postura para comparar mejor. Máximo 12 MB por foto.</p><div class="row"><label>Frontal<input id="reviewFront" type="file" accept="image/*"></label><label>Lateral<input id="reviewSide" type="file" accept="image/*"></label><label>Espalda<input id="reviewBack" type="file" accept="image/*"></label><label>Otras fotos<input id="reviewExtra" type="file" accept="image/*" multiple></label></div>
+  <h3>04 · Sensaciones y bienestar</h3><div class="row">${F("r_e","Energía (1-10)")}${F("r_h","Hambre (1-10)")}${F("r_dig","Digestiones (1-10)")}${F("r_s","Calidad del sueño (1-10)")}${F("r_hours","Horas de sueño")}${F("r_st","Estrés (1-10)")}${F("r_rec","Recuperación (1-10)")}${F("r_mood","Ánimo (1-10)")}</div>
+  <label>Sensaciones generales<textarea id="r_sens" rows="3" placeholder="¿Cómo te has encontrado esta semana?"></textarea></label>
+  <h3>05 · Nutrición y actividad</h3><div class="row">${SEL("d_d","¿Has seguido la dieta?",[["si","Sí"],["parcial","Parcialmente"],["no","No"]])}${SEL("d_en","¿Has completado los entrenamientos?",[["true","Sí"],["false","No"]])}${F("d_w","Agua diaria (L)")}${F("d_pa","Media de pasos diarios")}${F("d_c","Cardio semanal (min)")}${F("d_ans","Ansiedad (1-10)")}${F("d_ret","Retención de líquidos (1-10)")}</div>
+  <label>Entrenamiento realizado / actividad extra<textarea id="d_type" rows="2"></textarea></label><label>Incidencias con la alimentación<textarea id="d_food" rows="2"></textarea></label>
+  <h3>06 · Cambios y comentarios</h3><label>Dificultades de la semana<textarea id="r_diff" rows="2"></textarea></label><label>Cambios físicos observados<textarea id="r_changes" rows="2"></textarea></label><label>Molestias, ciclo o lesiones<textarea id="d_misc" rows="2"></textarea></label><label>Comentario final para tu entrenador<textarea id="r_comments" rows="3"></textarea></label>
+  <button class="btn" id="sendFullReview" type="submit" style="width:100%;margin-top:18px">Enviar mi revisión</button>
  </form>
- <h2>Revisiones anteriores</h2>
- ${(reviews||[]).map(r=>{
-  const rp=photos.filter(ph=>ph.review_id===r.id);
-  return '<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>'+esc(r.fecha)+' · '+(r.peso??"—")+' kg</b><span class="tag '+(r.estado==="completada"?"":"off")+'">'+esc(r.estado)+'</span></div>'+
-   '<p class="muted">Dieta '+(r.adh_dieta??"—")+'% · Entrenamiento '+(r.adh_entreno??"—")+'% · Energía '+(r.energia??"—")+'/10 · Hambre '+(r.hambre??"—")+'/10</p>'+
-   (r.sensaciones?'<p>'+esc(r.sensaciones)+'</p>':'')+(r.comentarios?'<p>'+esc(r.comentarios)+'</p>':'')+
-   (rp.length?'<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));margin-top:12px">'+rp.map(ph=>'<div><a href="'+esc(ph.url||"#")+'" target="_blank" rel="noopener"><img src="'+esc(ph.url||"")+'" alt="'+esc(ph.tipo||"Foto")+'" style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px"></a><small class="muted">'+esc(ph.tipo||"Foto")+'</small></div>').join("")+'</div>':'')+
-   (r.feedback?'<div class="diet-note"><b>Respuesta del entrenador</b><br>'+esc(r.feedback)+'</div>':'')+'</div>'
- }).join("")||'<div class="card muted">Todavía no has enviado ninguna revisión.</div>'}`;
+ <section><div class="review-section-head"><div><h2>Historial de revisiones</h2><p class="muted">Consulta lo que enviaste y las respuestas de tu entrenador.</p></div><span class="review-count">${(reviews||[]).length}</span></div>
+ ${rpHtml||'<div class="card muted">Todavía no has enviado ninguna revisión. Tu historial aparecerá aquí.</div>'}</section>`;
 },
 async c_mensajes(){return`<h1><em>Mensajes</em></h1>`+await msgsV(me.id)},
 async a_inicio(){const[c,r]=await Promise.all([sb.from("profiles").select("id,estado").eq("role","client"),sb.from("reviews").select("id").eq("estado","pendiente")]);
