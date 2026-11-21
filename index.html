@@ -214,11 +214,15 @@ async c_entreno(){
  if(error)return '<h1>Mi <em>entrenamiento</em></h1><div class="card">No se pudo cargar la rutina.</div>';
  const p=data?.[0];if(!p)return '<h1>Mi <em>entrenamiento</em></h1><div class="card">Tu entrenador todavía no ha publicado una rutina.</div>';
  const days=p.data?.days||[];
- const now=new Date(),todayLocal=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
- const weekday=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'][now.getDay()];
+ const now=new Date();
+ const madridParts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+ const madridPart=k=>madridParts.find(x=>x.type===k)?.value||'';
+ const todayLocal=madridPart('year')+'-'+madridPart('month')+'-'+madridPart('day');
+ const weekday=new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',weekday:'long'}).format(now);
+ const weekdayIndex=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'].indexOf(norm(weekday));
  const norm=s=>String(s||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
  let dayIndex=days.findIndex(d=>norm(d.name).trim().startsWith(norm(weekday)));
- if(dayIndex<0&&days.length===7)dayIndex=now.getDay();
+ if(dayIndex<0&&days.length===7)dayIndex=weekdayIndex;
  const logsQ=await sb.from("workout_logs").select("*").eq("client_id",me.id).order("created_at",{ascending:false}).limit(500);
  if(logsQ.error)return '<h1>Mi <em>entrenamiento</em></h1><div class="card">No se pudo cargar el historial de cargas.</div>';
  const logs=logsQ.data||[];
@@ -229,7 +233,7 @@ async c_entreno(){
  const d=days[dayIndex],exercises=d.exercises||[];
  const completed=exercises.filter((x,j)=>doneToday[dayIndex+'-'+j]).length;
  return `<h1>Mi <em>entrenamiento</em></h1>
- <div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span class="tag">${now.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})}</span><span class="muted">${completed}/${exercises.length} ejercicios completados</span></div><h2 style="margin:12px 0 6px">${esc(d.name)}</h2><p class="muted">${esc(p.nombre)} · ${esc(p.objetivos||"")}</p>${d.notes?'<p class="muted" style="white-space:pre-line">'+esc(d.notes)+'</p>':''}<div style="height:7px;background:#303030;border-radius:20px;overflow:hidden;margin-top:12px"><div style="height:100%;width:'+(exercises.length?Math.round(completed/exercises.length*100):0)+'%;background:var(--lime)"></div></div></div>
+ <div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span class="tag">${now.toLocaleDateString("es-ES",{timeZone:"Europe/Madrid",weekday:"long",day:"numeric",month:"long"})}</span><span class="muted">${completed}/${exercises.length} ejercicios completados</span></div><h2 style="margin:12px 0 6px">${esc(d.name)}</h2><p class="muted">${esc(p.nombre)} · ${esc(p.objetivos||"")}</p>${d.notes?'<p class="muted" style="white-space:pre-line">'+esc(d.notes)+'</p>':''}<div style="height:7px;background:#303030;border-radius:20px;overflow:hidden;margin-top:12px"><div style="height:100%;width:'+(exercises.length?Math.round(completed/exercises.length*100):0)+'%;background:var(--lime)"></div></div></div>
  ${exercises.map((x,j)=>{const key=dayIndex+'-'+j,last=lastFor(x),isDone=!!doneToday[key];return '<div class="card exercise-card" style="'+(isDone?'border-color:var(--lime);opacity:.88':'')+'"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><h3 class="exercise-name">'+esc(x.name)+'</h3><label style="display:flex;align-items:center;gap:8px;color:var(--lime);font-weight:800;white-space:nowrap"><input type="checkbox" style="width:22px;height:22px;accent-color:var(--lime)" '+(isDone?'checked':'')+' onchange="toggleExerciseDone(this.checked,\''+(x.exercise_id||"")+'\',\''+esc(x.name).replace(/'/g,"")+'\',\''+dayIndex+'\',\''+j+'\')"> Hecho</label></div><p>'+esc(x.sets)+' series · '+esc(x.reps)+' reps · '+(x.rest?'Descanso '+esc(x.rest)+' s':'Descanso no especificado')+'</p>'+(x.notes?'<p class="muted">'+esc(x.notes)+'</p>':'')+(x.video_url?'<a href="'+esc(x.video_url)+'" target="_blank" rel="noopener">Ver vídeo del ejercicio ↗</a>':'')+'<div class="row" style="margin-top:14px"><label>Carga utilizada (kg)<input id="kg_'+dayIndex+'_'+j+'" type="number" min="0" step=".5" value="'+(last?esc(last.kg):'')+'" placeholder="Introduce los kg"></label><label>Repeticiones realizadas<input id="reps_'+dayIndex+'_'+j+'" type="number" min="0" step="1" placeholder="'+esc(x.reps||"Repeticiones")+'"></label></div><p class="muted" style="font-size:12px;margin:0 0 10px">'+(last?'Última vez: <b style="color:var(--lime)">'+esc(last.kg)+' kg</b> · '+new Date(last.date).toLocaleDateString("es-ES"):'Todavía no hay una carga registrada')+'</p><button class="btn sm" onclick="saveExerciseLog(\''+(x.exercise_id||"")+'\',\''+esc(x.name).replace(/'/g,"")+'\',\''+dayIndex+'\',\''+j+'\')">Guardar carga</button></div>'}).join("")}
  `;
 },
