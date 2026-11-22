@@ -826,7 +826,7 @@ async function parseTrainingPdf(){
   }
   lines.sort((a,b)=>a.page-b.page||b.y-a.y);
   const days=[],general=[],warnings=[];
-  const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
+  const clean=s=>String(s||"").replace(/\\s+/g," ").trim().replace(/^\\|+|\\|+$/g,"").trim();
   const normalizeDay=s=>clean(s).replace(/^D[IÍ]A\\s*\\d+\\s*[|·—:-]?\\s*/i,"").replace(/^D[IÍ]A\\s*/i,"").trim();
   const isHeading=line=>/^(?:D[IÍ]A\\s*\\d+\\s*[|·—:-]\\s*.+|(?:LUNES|MARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)\\s*[|·—:-]\\s*.+)$/i.test(line);
   const addText=(obj,key,value,sep=" ")=>{if(value)obj[key]=(obj[key]?obj[key]+sep:"")+value};
