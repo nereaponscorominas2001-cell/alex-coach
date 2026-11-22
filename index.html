@@ -672,10 +672,12 @@ async function parseDietPdf(){
    const trainOptions=splitChoices(groupText).map(splitItems).filter(x=>x.length);
    if(!trainOptions.length)return null;
    const offOptions=offText?splitChoices(offText).map(splitItems).filter(x=>x.length):trainOptions.map(x=>x.map(y=>({...y})));
-   const primary=trainOptions[0],alternatives=trainOptions.slice(1).flat();
-   const training=primary.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
-   const recoveryPrimary=offOptions[0]||primary,recoveryAlternatives=offOptions.slice(1).flat();
-   const recovery=recoveryPrimary.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?recoveryAlternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+   // Cada // separa opciones excluyentes: importar únicamente la primera.
+   // Los alimentos unidos por + sí forman parte de la misma opción y se conservan todos.
+   const primary=trainOptions[0];
+   const training=primary.map(x=>({...x,source_name:groupText,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+   const recoveryPrimary=offOptions[0]||primary;
+   const recovery=recoveryPrimary.map(x=>({...x,source_name:groupText,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
    return {training,recovery};
   };
   const addLine=(meal,line)=>{
