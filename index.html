@@ -836,8 +836,9 @@ async function parseTrainingPdf(){
    let name=colon>1?clean(raw.slice(0,colon)):raw;
    let prescription=colon>1?clean(raw.slice(colon+1)):"";
    if(!prescription){
-    const match=raw.match(/^(.*?)(\\d+\\s*[x×]\\s*\\d[\\d\\s.,aA-]*(?:.*)?)$/);
-    if(match){name=clean(match[1]);prescription=clean(match[2])}
+    const leading=raw.match(/^(\\d+)\\s*[x×]\\s*(\\d+(?:\\s*(?:a|[-–])\\s*\\d+)?(?:\\s*min)?)(?:\\s+)(.+)$/i);
+    if(leading){name=clean(leading[3]);prescription=clean(leading[1]+"x "+leading[2])}
+    else{const match=raw.match(/^(.*?)(\\d+\\s*[x×]\\s*\\d[\\d\\s.,aA-]*(?:.*)?)$/);if(match){name=clean(match[1]);prescription=clean(match[2])}}
    }
    if(!prescription||name.length<3)return null;
    const setsMatches=[...prescription.matchAll(/(\\d+)\\s*[x×]/gi)];
