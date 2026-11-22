@@ -662,7 +662,12 @@ async function parseDietPdf(){
     const right=items.filter(x=>x.x>=155).map(x=>x.s).join(" ").replace(/\s+/g," ").trim();
     const marker=left.match(/\bCOMIDA\s*([1-9])\b/i);
     if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:"",section:left});if(right)rows.push({page:p,y,meal:null,text:right,section:""});}
-    else if(right)rows.push({page:p,y,meal:null,text:right,section:left});
+    else if(right){
+     // En este PDF, la cantidad puede quedar en la columna izquierda y el alimento en la derecha.
+     const leftHasAmount=/\\d/.test(left)&&/\\d\\s*(?:g|gr|gramos|ml|cl|l|ud|uds|huevo|lata)/i.test(left);
+     const joined=leftHasAmount?(left+" "+right):right;
+     rows.push({page:p,y,meal:null,text:joined,section:left});
+    }
    }
    pageRows.push(...rows);
   }
@@ -675,7 +680,7 @@ async function parseDietPdf(){
    else{
     const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
     if(!m)return null;
-    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/[),;]+$/g,"").trim();
+    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/^r\\s+/i,"").replace(/[),;]+$/g,"").trim();
     if(unit==="ud"||unit==="uds"||unit.startsWith("unidad")){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||1;unit="g";}
     else if(unit==="lata"||unit==="latas"){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||52;unit="g";}
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
