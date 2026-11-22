@@ -625,23 +625,30 @@ async function parseDietPdf(){
   dietImportMode=true;dietPdfFile=null;await draw();
  }catch(e){console.error("PDF diet import:",e);alert("No se ha podido leer el PDF: "+(e.message||"Error desconocido"))}
 }
-function setImportedFood(mi,fi,id){let x=dietImport.meals[mi].foods[fi],f=foodsCache.find(z=>z.id===id);if(!f){x.food_id=null;x.kcal_100=x.prot_100=x.hc_100=x.grasa_100=0;return draw()}let grams=+x.grams||100;Object.assign(x,{food_id:f.id,name:f.nombre,grams,kcal_100:+f.kcal_100||0,prot_100:+f.prot_100||0,hc_100:+f.hc_100||0,grasa_100:+f.grasa_100||0});draw()}
-function setImportedGrams(mi,fi,v){dietImport.meals[mi].foods[fi].grams=Math.max(0,+v||0);draw()}
-function removeImportedFood(mi,fi){dietImport.meals[mi].foods.splice(fi,1);draw()}
-function removeImportedMeal(mi){dietImport.meals.splice(mi,1);draw()}
-function addImportedMeal(){dietImport.meals.push({name:"Nueva comida",foods:[]});draw()}
-function addImportedFood(mi){dietImport.meals[mi].foods.push({source_name:"Nuevo alimento",name:"",food_id:null,grams:100,kcal_100:0,prot_100:0,hc_100:0,grasa_100:0});draw()}
+function dietImportCurrentMeals(){return dietImport?.activeSet==="recovery"?dietImport.recoveryMeals:dietImport.meals}
+function switchImportedSet(set){const d=dietImport;if(!d)return;const t=d.activeSet==="recovery"?d.targetsRecovery:d.targetsTraining;for(const [id,key] of [["pdfTargetK","kcal"],["pdfTargetP","protein"],["pdfTargetC","carbs"],["pdfTargetG","fat"]]){const el=document.getElementById(id);if(el)t[key]=Number(el.value)||0}d.activeSet=set;draw()}
+function setImportedFood(mi,fi,id){const x=dietImportCurrentMeals()[mi].foods[fi],f=foodsCache.find(z=>z.id===id);if(!f){x.food_id=null;x.kcal_100=x.prot_100=x.hc_100=x.grasa_100=0;return draw()}const grams=+x.grams||100;Object.assign(x,{food_id:f.id,name:f.nombre,grams,kcal_100:+f.kcal_100||0,prot_100:+f.prot_100||0,hc_100:+f.hc_100||0,grasa_100:+f.grasa_100||0});if(x.alternatives?.length){x.alternatives[0]={...x.alternatives[0],food_id:f.id,name:f.nombre,kcal_100:x.kcal_100,prot_100:x.prot_100,hc_100:x.hc_100,grasa_100:x.grasa_100}}draw()}
+function setImportedGrams(mi,fi,v){dietImportCurrentMeals()[mi].foods[fi].grams=Math.max(0,+v||0);draw()}
+function removeImportedFood(mi,fi){dietImportCurrentMeals()[mi].foods.splice(fi,1);draw()}
+function removeImportedMeal(mi){dietImportCurrentMeals().splice(mi,1);draw()}
+function addImportedMeal(){dietImportCurrentMeals().push({name:"Nueva comida",foods:[]});draw()}
+function addImportedFood(mi){dietImportCurrentMeals()[mi].foods.push({source_name:"Nuevo alimento",name:"",food_id:null,grams:100,kcal_100:0,prot_100:0,hc_100:0,grasa_100:0});draw()}
 async function saveImportedDiet(){
- const d=dietImport,clientId=document.querySelector("#pdfClient")?.value||d.client_id,name=document.querySelector("#pdfDietName")?.value.trim();
+ const d=dietImport;if(!d)return;
+ const activeTargets=d.activeSet==="recovery"?d.targetsRecovery:d.targetsTraining;
+ for(const [id,key] of [["pdfTargetK","kcal"],["pdfTargetP","protein"],["pdfTargetC","carbs"],["pdfTargetG","fat"]]){const el=document.getElementById(id);if(el)activeTargets[key]=Number(el.value)||0}
+ const clientId=document.querySelector("#pdfClient")?.value||d.client_id,name=document.querySelector("#pdfDietName")?.value.trim();
  if(!clientId)return alert("Selecciona un cliente.");if(!name)return alert("Escribe un nombre para la dieta.");
- let rows=d.meals.flatMap(m=>m.foods);if(!rows.length)return alert("La dieta no contiene alimentos.");
- let pending=rows.filter(x=>!x.food_id||!(+x.grams>0));if(pending.length)return alert("Quedan "+pending.length+" alimento(s) por relacionar o revisar sus gramos.");
- let targets={kcal:+document.querySelector("#pdfTargetK").value||0,protein:+document.querySelector("#pdfTargetP").value||0,carbs:+document.querySelector("#pdfTargetC").value||0,fat:+document.querySelector("#pdfTargetG").value||0};
- let {data:prev,error}=await sb.from("plans").select("version").eq("client_id",clientId).eq("tipo","dieta").order("version",{ascending:false}).limit(1);if(error)return alert(error.message);
- let version=(prev?.[0]?.version||0)+1,payload={targets,meals:d.meals.map(m=>({name:m.name,foods:m.foods.map(x=>({food_id:x.food_id,name:x.name,grams:+x.grams,kcal_100:+x.kcal_100||0,prot_100:+x.prot_100||0,hc_100:+x.hc_100||0,grasa_100:+x.grasa_100||0}))}))};
- let r=await sb.from("plans").insert({client_id:clientId,tipo:"dieta",nombre,objetivos:document.querySelector("#pdfGoal").value,observaciones:document.querySelector("#pdfNotes").value,data:payload,version,activo:true});if(r.error)return alert("No se pudo guardar: "+r.error.message);
- let old=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo","dieta").eq("activo",true).neq("version",version);if(old.error)console.warn(old.error);
- dietImport=null;dietImportMode=false;tab="planes";alert("Dieta guardada y publicada como versión "+version+".");draw();
+ const all=[...(d.meals||[]),...(d.recoveryMeals||[])],rows=all.flatMap(m=>m.foods||[]);if(!rows.length)return alert("La dieta no contiene alimentos.");
+ const pending=rows.filter(x=>!x.food_id||!(+x.grams>0));if(pending.length)return alert("Quedan "+pending.length+" alimentos u opciones por relacionar con la biblioteca o revisar sus cantidades.");
+ const makeSet=(meals,targets)=>({targets,meals:meals.map(m=>({name:m.name,foods:m.foods.map(x=>({food_id:x.food_id,name:x.name,grams:+x.grams,kcal_100:+x.kcal_100||0,prot_100:+x.prot_100||0,hc_100:+x.hc_100||0,grasa_100:+x.grasa_100||0,alternatives:x.alternatives||[]}))}))});
+ const {data:prev,error}=await sb.from("plans").select("version").eq("client_id",clientId).eq("tipo","dieta").order("version",{ascending:false}).limit(1);if(error)return alert(error.message);
+ const version=(prev?.[0]?.version||0)+1;
+ const payload={meal_sets:{training:makeSet(d.meals,d.targetsTraining),recovery:makeSet(d.recoveryMeals,d.targetsRecovery)}};
+ const r=await sb.from("plans").insert({client_id:clientId,tipo:"dieta",nombre,objetivos:document.querySelector("#pdfGoal").value,observaciones:document.querySelector("#pdfNotes").value,data:payload,version,activo:true});
+ if(r.error)return alert("No se pudo guardar: "+r.error.message);
+ const old=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo","dieta").eq("activo",true).neq("version",version);if(old.error)console.warn(old.error);
+ dietImport=null;dietImportMode=false;tab="planes";alert("Las dos versiones se han publicado: entrenamiento y descanso. Versión "+version+".");draw();
 }
 
 async function savePlan(){const name=document.querySelector("#planName").value.trim();if(!name)return alert("Escribe un nombre para el plan");const type=planDraft.tipo;const {data:prev}=await sb.from("plans").select("version").eq("client_id",planDraft.client_id).eq("tipo",type).order("version",{ascending:false}).limit(1);const version=(prev?.[0]?.version||0)+1;const data=type==="dieta"?{targets:{kcal:Number(document.querySelector("#targetK").value)||0,protein:Number(document.querySelector("#targetP").value)||0,carbs:Number(document.querySelector("#targetC").value)||0,fat:Number(document.querySelector("#targetG").value)||0},meals:planDraft.meals}:{days:planDraft.days};const old=await sb.from("plans").update({activo:false}).eq("client_id",planDraft.client_id).eq("tipo",type).eq("activo",true);if(old.error)return alert(old.error.message);const r=await sb.from("plans").insert({client_id:planDraft.client_id,tipo:type,nombre:name,objetivos:document.querySelector("#planGoal").value,observaciones:document.querySelector("#planNotes").value,data,version,activo:true});if(r.error)return alert(r.error.message);planDraft=null;alert("Plan publicado como versión "+version);draw()}
