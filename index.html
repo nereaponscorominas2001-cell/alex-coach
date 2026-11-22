@@ -56,6 +56,18 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 
 @media(max-width:640px){header,nav,main{padding-left:16px;padding-right:16px}}
 
+.template-assign-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:18px}
+.template-assign-modal{width:min(620px,100%);max-height:min(82vh,720px);overflow:auto;background:#141414;border:1px solid #343434;border-radius:18px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.6)}
+.template-assign-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:8px}
+.template-assign-head h2{margin:0;font-size:23px}
+.template-assign-bubbles{display:flex;flex-wrap:wrap;gap:11px;margin-top:18px}
+.template-client-bubble{display:flex;align-items:center;gap:10px;min-height:54px;padding:8px 15px 8px 9px;border:1px solid #3d5030;border-radius:999px;background:#1c2815;color:#fff;font:inherit;font-weight:750;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
+.template-client-bubble:hover{transform:translateY(-2px);border-color:var(--lime);background:#26371c}
+.template-client-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--lime);color:#000;font-size:13px;font-weight:900;flex:0 0 auto}
+.template-assign-empty{padding:24px 16px;text-align:center;background:#090909;border:1px dashed #444;border-radius:12px;color:#aaa;margin-top:16px}
+@media(max-width:600px){.template-assign-modal{padding:17px}.template-client-bubble{width:100%;justify-content:flex-start}}
+
+
 .exercise-card{background:linear-gradient(135deg,rgba(182,243,107,.10),var(--g1) 58%);border:1px solid rgba(182,243,107,.42);border-left:5px solid #B6F36B;padding:20px 20px 18px;margin:14px 0;border-radius:13px;box-shadow:0 5px 18px rgba(0,0,0,.14)}
 .exercise-card .exercise-name{font-size:clamp(22px,2.8vw,28px);line-height:1.22;font-weight:900;letter-spacing:.1px;color:#B6F36B!important;margin:0 0 13px;text-wrap:balance}
 @media(max-width:600px){.exercise-card{padding:17px 15px}.exercise-card .exercise-name{font-size:22px}}
@@ -130,6 +142,7 @@ const today=()=>new Date().toISOString().slice(0,10),nv=id=>{const v=$("#"+id).v
 const F=(id,l,t="number",v="")=>`<label>${l}<input id="${id}" type="${t}" step="0.1" value="${v}"></label>`;
 const SEL=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>`;
 const APP_URL="https://coach-os-alex-vicent-coach.vercel.app";
+let templateAssign=null;
 let me=null,tab="inicio",sel=null,chatSel=null,signupMode=false,dietSet="training",bootSeq=0,drawSeq=0,templateEditId=null,inviteMode=new URLSearchParams(location.hash.slice(1)).get("type")==="invite",recoveryMode=new URLSearchParams(location.hash.slice(1)).get("type")==="recovery";
 const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["dietas","Dietas y compra"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
 const MT=[["mi_inicio","Mi inicio"],["mi_dieta","Mi dieta"],["mi_dietas","Mi dieta y compra"],["mi_entreno","Mi entrenamiento"],["mi_revision","Mi revisión"],["mi_mensajes","Mis mensajes"],["mi_perfil","Mi perfil"]];
@@ -252,13 +265,19 @@ async a_biblioteca(){const [f,e]=await Promise.all([sb.from("foods").select("*")
 async a_plantillas(){
  const {data,error}=await sb.from("templates").select("*").order("created_at",{ascending:false});
  if(error)return '<h1>Plantillas</h1><div class="card">No se pudieron cargar las plantillas: '+esc(error.message)+'</div>';
+ const t=templateAssign?.template,clients=templateAssign?.clients||[];
+ const modal=t?`<div class="template-assign-overlay" onclick="if(event.target===this)closeTemplateAssign()"><section class="template-assign-modal" role="dialog" aria-modal="true" aria-label="Asignar plantilla a cliente">
+  <div class="template-assign-head"><div><span class="tag">ASIGNAR PLANTILLA</span><h2 style="margin-top:12px">Elige un cliente activo</h2><p class="muted" style="margin:5px 0 0">${esc(t.nombre)} · ${esc(t.tipo)}</p></div><button class="btn ghost sm" onclick="closeTemplateAssign()">Cerrar ✕</button></div>
+  <p class="muted">Pulsa el nombre del cliente para publicar esta plantilla en su cuenta.</p>
+  ${clients.length?`<div class="template-assign-bubbles">${clients.map(x=>{const name=[x.nombre,x.apellidos].filter(Boolean).join(" ")||x.email||"Cliente";const initials=name.split(/\s+/).slice(0,2).map(w=>w[0]||"").join("").toUpperCase();return `<button class="template-client-bubble" onclick="assignTemplateToClient('${x.id}')"><span class="template-client-avatar">${esc(initials)}</span><span>${esc(name)}</span></button>`}).join("")}</div>`:'<div class="template-assign-empty">No hay clientes activos para asignar esta plantilla.</div>'}
+ </section></div>`: "";
  return `<h1>Plantillas <em>reutilizables</em></h1>
- <div class="card"><p>Edita una plantilla para actualizarla sin cambiar los planes ya asignados. También puedes eliminar las que ya no utilices.</p></div>
+ <div class="card"><p>Asigna una plantilla directamente a un cliente activo. El plan anterior, si existe, se conservará como histórico. También puedes editar o eliminar plantillas.</p></div>
  <div style="display:flex;flex-direction:column;gap:12px;width:100%;">
  ${(data||[]).map(t=>`<div class="card" style="display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0;">
  <div style="flex:1;min-width:180px;"><span class="tag">${esc(t.tipo)}</span><h3 style="margin:8px 0;color:#fff">${esc(t.nombre)}</h3><p class="muted" style="margin:0">${esc(t.objetivo)}</p></div>
  <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn sm" onclick="useTemplate('${t.id}')">Asignar a cliente</button><button class="btn sm ghost" onclick="editTemplate('${t.id}')">Editar</button><button class="btn sm ghost" onclick="deleteTemplate('${t.id}')">Borrar</button></div></div>`).join("")||'<div class="card muted">Aún no hay plantillas guardadas.</div>'}
- </div>`;
+ </div>${modal}`;
  },
 async c_dieta(){
  const {data}=await sb.from("plans").select("*").eq("client_id",me.id).eq("tipo","dieta").eq("activo",true).order("created_at",{ascending:false}).limit(1);
@@ -525,7 +544,41 @@ async function savePlanAsTemplate(){const name=document.querySelector("#planName
 async function editTemplate(id){const {data:t,error}=await sb.from("templates").select("*").eq("id",id).single();if(error)return alert(error.message);templateEditId=id;const data=t.data||{};planDraft={client_id:null,tipo:t.tipo,nombre:t.nombre,objetivos:t.objetivo||"",observaciones:"",targets:data.targets||{kcal:0,protein:0,carbs:0,fat:0},meals:structuredClone(data.meals||[]),days:structuredClone(data.days||[])};tab="planes";draw()}
 async function updateTemplate(){const name=$("#planName").value.trim();if(!name)return alert("Escribe un nombre para la plantilla");const type=planDraft.tipo;const data=type==="dieta"?{targets:{kcal:Number($("#targetK").value)||0,protein:Number($("#targetP").value)||0,carbs:Number($("#targetC").value)||0,fat:Number($("#targetG").value)||0},meals:planDraft.meals}:{days:planDraft.days};const r=await sb.from("templates").update({nombre:name,objetivo:$("#planGoal").value,data}).eq("id",templateEditId);if(r.error)return alert("No se pudo actualizar: "+r.error.message);planDraft=null;templateEditId=null;tab="plantillas";alert("Plantilla actualizada. Los planes ya asignados no se han modificado.");draw()}
 async function deleteTemplate(id){if(!confirm("¿Seguro que quieres borrar esta plantilla? Esta acción no afecta a los planes que ya hayas asignado."))return;const r=await sb.from("templates").delete().eq("id",id);if(r.error)return alert("No se pudo borrar: "+r.error.message);alert("Plantilla eliminada.");draw()}
-async function useTemplate(id){const {data:t,error}=await sb.from("templates").select("*").eq("id",id).single();if(error)return alert(error.message);const {data:c}=await sb.from("profiles").select("id,nombre,email").eq("role","client");const client=prompt("Introduce el número del cliente:\n"+(c||[]).map((x,i)=>(i+1)+". "+(x.nombre||x.email)).join("\n"));const target=c?.[Number(client)-1];if(!target)return;tab="planes";planDraft={client_id:target.id,tipo:t.tipo,nombre:t.nombre,objetivos:t.objetivo||"",observaciones:"",targets:t.data?.targets||{kcal:0,protein:0,carbs:0,fat:0},meals:t.data?.meals||[],days:t.data?.days||[]};draw()}
+async function useTemplate(id){
+ const {data:t,error}=await sb.from("templates").select("*").eq("id",id).single();
+ if(error)return alert("No se pudo abrir la plantilla: "+error.message);
+ if(!["dieta","entreno"].includes(t.tipo))return alert("Esta plantilla es de tipo "+t.tipo+" y no se puede asignar como plan. Solo se pueden asignar dietas o entrenamientos.");
+ const {data:clients,error:clientError}=await sb.from("profiles").select("id,nombre,apellidos,email").eq("role","client").eq("estado","activo").order("nombre",{ascending:true});
+ if(clientError)return alert("No se pudieron cargar los clientes activos: "+clientError.message);
+ templateAssign={template:t,clients:clients||[]};
+ await draw();
+}
+function closeTemplateAssign(){templateAssign=null;draw()}
+async function assignTemplateToClient(clientId){
+ const t=templateAssign?.template;
+ if(!t)return alert("Vuelve a abrir la plantilla e inténtalo de nuevo.");
+ const client=(templateAssign.clients||[]).find(x=>x.id===clientId);
+ if(!client)return alert("No se ha encontrado ese cliente activo. Actualiza la lista.");
+ const clientName=[client.nombre,client.apellidos].filter(Boolean).join(" ")||client.email||"el cliente";
+ if(!confirm("¿Asignar \""+t.nombre+"\" a "+clientName+"? Se publicará una nueva versión y el plan activo anterior pasará al histórico."))return;
+ const {data:previous,error:previousError}=await sb.from("plans").select("id,version").eq("client_id",clientId).eq("tipo",t.tipo).order("version",{ascending:false});
+ if(previousError)return alert("No se pudo comprobar el plan anterior: "+previousError.message);
+ const version=(previous?.[0]?.version||0)+1;
+ const oldIds=(previous||[]).map(p=>p.id);
+ if(oldIds.length){
+  const archived=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo",t.tipo).eq("activo",true);
+  if(archived.error)return alert("No se pudo archivar el plan anterior: "+archived.error.message);
+ }
+ const inserted=await sb.from("plans").insert({client_id:clientId,tipo:t.tipo,nombre:t.nombre,objetivos:t.objetivo||"",observaciones:"",data:t.data||{},version,activo:true,template_id:t.id});
+ if(inserted.error){
+  if(oldIds.length)await sb.from("plans").update({activo:true}).in("id",oldIds);
+  return alert("No se pudo asignar la plantilla: "+inserted.error.message);
+ }
+ templateAssign=null;
+ alert("Plantilla \""+t.nombre+"\" asignada correctamente a "+clientName+".");
+ tab="plantillas";
+ await draw();
+}
 async function saveFood(){const nombre=sv("foodName").trim();if(!nombre)return alert("Escribe el nombre del alimento");const r=await sb.from("foods").insert({nombre,kcal_100:nv("foodK")||0,prot_100:nv("foodP")||0,hc_100:nv("foodC")||0,grasa_100:nv("foodG")||0,peso_unidad_g:nv("foodUnit")});if(r.error)return alert(r.error.message);draw()}
 async function saveExercise(){const nombre=sv("exName").trim();if(!nombre)return alert("Escribe el nombre del ejercicio");const r=await sb.from("exercises").insert({nombre,grupo_principal:sv("exGroup"),video_url:sv("exVideo"),indicaciones:sv("exNotes")});if(r.error)return alert(r.error.message);draw()}
 function refreshStepProgress(){const count=Math.max(0,Number($("#stepsToday")?.value)||0),goal=Math.max(1,Number($("#stepsGoal")?.value)||1),pct=Math.min(100,Math.round(count/goal*100)),remaining=Math.max(0,goal-count),fill=$("#stepsProgressFill"),txt=$("#stepsProgressText");if(fill)fill.style.width=pct+"%";if(txt)txt.innerHTML='<span>'+count.toLocaleString("es-ES")+' / '+goal.toLocaleString("es-ES")+' pasos</span><span style="color:var(--lime)">'+(pct>=100?'¡Objetivo conseguido!':'Te faltan '+remaining.toLocaleString("es-ES")+' pasos')+'</span>';const badge=document.querySelector(".card[style*='border-color:rgba(182,243,107,.45)'] .tag");if(badge)badge.textContent=pct+"% del objetivo";}
