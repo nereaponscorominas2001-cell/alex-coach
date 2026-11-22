@@ -613,7 +613,7 @@ async function dietPdfImporterView(){
 function normDiet(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
 const dietFoodAliases={
  "aove":"aceite de oliva","aceite oliva":"aceite de oliva","proteina":"whey protein","whey":"whey protein",
- "claras":"clara de huevo","clara":"clara de huevo","avena":"avena en copos","pan":"pan blanco",
+ "claras":"clara de huevo","clara":"clara de huevo","huevo":"huevo entero","huevos":"huevo entero","avena":"avena en copos","pan":"pan blanco",
  "cereales mix mercadona 0":"cereales mix hacendado 0","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz",
  "pescado azul":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati",
  "pasta de cualquier tipo":"pasta de trigo","burgers ternera o potro":"burger de ternera",
@@ -673,17 +673,17 @@ async function parseDietPdf(){
   }
   const meals={training:[],recovery:[]},notes=[],warnings=[];let detected=0,omitted=0;
   const parseOpt=raw=>{
-   let z=String(raw||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2");
+   let z=String(raw||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2");
    const egg=z.match(/^(\d+(?:[.,]\d+)?)\s+huevo(?:s)?\s*(.*)$/i);
    let amount,unit,name;
    if(egg){amount=Number(egg[1].replace(",","."))*50;unit="g";name=("huevo "+(egg[2]||"")).trim();}
    else{
-    const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
+    const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|mll|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
     if(!m)return null;
     amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/^r\s+/i,"").replace(/[),;]+$/g,"").trim();
     if(unit==="ud"||unit==="uds"||unit.startsWith("unidad")){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||1;unit="g";}
     else if(unit==="lata"||unit==="latas"){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||52;unit="g";}
-    else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
+    else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml"||unit==="mll")unit="g";
    }
    if(!amount||!name)return null;
    const food=resolveDietFood(name);
@@ -706,7 +706,7 @@ async function parseDietPdf(){
    return {training,recovery};
   };
   const addLine=(meal,line)=>{
-   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2");if(!clean)return false;
+   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2");if(!clean)return false;
    if(/^(?:AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(clean)||excludedLine(clean)){excluded++;return false;}
    const m=clean.match(/^(.*?)\s*\(([^)]*d[ií]as?\s*off[^)]*)\)\s*$/i);
    const base=(m?m[1]:clean).trim(),annotation=m?m[2]:"";
