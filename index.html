@@ -173,8 +173,8 @@ const F=(id,l,t="number",v="")=>`<label>${l}<input id="${id}" type="${t}" step="
 const SEL=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>`;
 const APP_URL="https://coach-os-alex-vicent-coach.vercel.app";
 let templateAssign=null;
-let me=null,tab="inicio",sel=null,chatSel=null,signupMode=false,dietSet="training",bootSeq=0,drawSeq=0,templateEditId=null,inviteMode=new URLSearchParams(location.hash.slice(1)).get("type")==="invite",recoveryMode=new URLSearchParams(location.hash.slice(1)).get("type")==="recovery";
-const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["dietas","Dietas y compras"],["semanal","Entrenamiento semanal"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
+let me=null,tab="inicio",sel=null,chatSel=null,signupMode=false,dietSet="training",adminPlansTab="dieta",bootSeq=0,drawSeq=0,templateEditId=null,inviteMode=new URLSearchParams(location.hash.slice(1)).get("type")==="invite",recoveryMode=new URLSearchParams(location.hash.slice(1)).get("type")==="recovery";
+const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["dietas","Dietas y compras"],["semanal","Entrenamiento semanal"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Administrados"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
 const MT=[["mi_inicio","Mi inicio"],["mi_dieta","Mi dieta"],["mi_dietas","Mi dieta y compra"],["mi_entreno","Mi entrenamiento"],["mi_revision","Mi revisión"],["mi_mensajes","Mis mensajes"],["mi_perfil","Mi perfil"]];
 const ok=r=>{if(r.error){alert(r.error.message);return false}return true};
 async function boot(){const run=++bootSeq;try{const{data:{session},error:sessionError}=await sb.auth.getSession();if(run!==bootSeq)return;if(sessionError)throw sessionError;if(inviteMode){me=null;await draw();return}if(!session){me=null;await draw();return}const{data,error}=await sb.from("profiles").select("*").eq("id",session.user.id).single();if(run!==bootSeq)return;if(error)throw error;if(!data)throw Error("No se ha encontrado el perfil de este usuario.");me=data;await draw()}catch(e){if(run!==bootSeq)return;console.error("Error al iniciar sesión:",e);const app=$("#app");if(app)app.innerHTML='<div class="auth card"><h1>No se pudo cargar tu perfil</h1><p>La sesión está iniciada, pero no hemos podido recuperar tus datos. Comprueba tu conexión e inténtalo de nuevo.</p><p class="muted">'+esc(e?.message||"Error temporal")+'</p><button class="btn" onclick="boot()">Reintentar</button></div>'}}
@@ -187,7 +187,7 @@ async function draw(){const run=++drawSeq,nav=$("#nav"),app=$("#app");$("#out").
  if(!me.consentimiento_rgpd_at){nav.innerHTML="";app.innerHTML=`<div class="auth card"><h3>Protección de datos</h3><p>Para usar la plataforma necesito tu consentimiento para tratar tus datos de salud, medidas y fotografías con el fin de gestionar tu asesoría. Puedes retirarlo cuando quieras.</p><label><input type="checkbox" id="cons" style="width:auto"> Acepto el tratamiento de mis datos</label><br><br><button class="btn" onclick="consent()">Continuar</button></div>`;return}
  const isAdmin=me.role=="admin";
  if(!isAdmin&&(!me.nombre||!me.edad||!me.altura_cm||!me.peso_inicial||!me.telefono)){nav.innerHTML="";app.innerHTML=profileOnboardingV();return}
- const T=isAdmin?[["clientes","Clientes"],["chats","Chats"],["planes","Planes"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]]:CT;
+ const T=isAdmin?[["clientes","Clientes"],["chats","Chats"],["planes","Administrados"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]]:CT;
  if(isAdmin&&!T.some(([k])=>k===tab))tab="clientes";
  nav.innerHTML=T.map(([k,l])=>`<button class="${tab===k?"on":""}" onclick="tab='${k}';sel=null;draw()">${l}</button>`).join("");
  app.innerHTML='<p class="muted">Cargando…</p>';
@@ -289,7 +289,23 @@ async a_chats(){
  '<div class="card"><h3>Clientes</h3>'+((clients||[]).map(x=>{const m=latest.get(x.id);return '<button class="btn '+(x.id===chatSel?'':'ghost')+'" style="display:block;width:100%;text-align:left;margin:7px 0;white-space:normal" onclick="chatSel=\''+x.id+'\';draw()">'+esc([x.nombre,x.apellidos].filter(Boolean).join(" ")||x.email)+'<br><small style="opacity:.75">'+(m?esc(String(m.body||"").slice(0,55)):"Sin mensajes")+'</small></button>'}).join("")||'<p class="muted">Todavía no hay clientes.</p>')+'</div>'+
  '<div><div class="card"><h3>'+ (selected?esc([selected.nombre,selected.apellidos].filter(Boolean).join(" ")||selected.email):"Selecciona un cliente")+'</h3>'+(selected?await msgsV(selected.id):'<p class="muted">Selecciona un cliente para abrir la conversación.</p>')+'</div></div></div>';
 },
-async a_clientes(){if(sel)return await clientV(sel);const [{data},{data:templates,error:te}]=await Promise.all([sb.from("profiles").select("*").or("role.eq.client,id.eq."+me.id).order("created_at",{ascending:false}),sb.from("templates").select("id,nombre,tipo").eq("tipo","dieta").order("nombre")]);return`<h1><em>Clientes</em></h1><div class="card"><h3>+ Invitar cliente y preparar su plan</h3><p class="muted">El cliente rellenará sus datos personales y de salud al aceptar la invitación. Tú solo defines el objetivo, los macros y la plantilla de dieta.</p><label>Correo electrónico del cliente<input id="inviteEmail" type="email" placeholder="cliente@correo.com" autocomplete="email"></label><div class="row"><label>Objetivo principal<input id="inviteObjective" placeholder="Pérdida de grasa, ganancia muscular, recomposición…"></label></div><h3>Objetivos nutricionales diarios</h3><div class="row">${F("inviteKcal","Kcal objetivo")}${F("inviteProtein","Proteína (g)")}${F("inviteFat","Grasas (g)")}${F("inviteCarbs","Hidratos (g)")}</div><p class="muted">La app ajustará los gramos de cada alimento de la plantilla para aproximarse a las kcal y macros indicados.</p><h3>Plantilla de dieta</h3><label>Elige la dieta<select id="inviteTemplate"><option value="">Selecciona una plantilla…</option>${(templates||[]).map(t=>'<option value="'+t.id+'">'+esc(t.nombre)+'</option>').join("")}</select></label><p class="muted" style="font-size:12px">${te?"No se pudieron cargar las plantillas: "+esc(te.message):"Se conservan las comidas y alimentos de la plantilla seleccionada y se recalculan sus cantidades."}</p><button class="btn" id="inviteBtn" onclick="inviteClient()">Enviar invitación y generar dieta</button></div><div class="card scroll"><table><tr><th>Nombre</th><th>Correo</th><th>Objetivo</th><th>Kcal</th><th>Estado</th><th></th></tr>${(data||[]).map(c=>`<tr><td>${esc(c.nombre)||"-"}${c.id===me.id?' <span class="tag">Tu ficha</span>':""}</td><td>${esc(c.email)}</td><td>${esc(c.objetivo)}</td><td>${c.kcal_objetivo||"—"}</td><td><span class="tag ${c.id===me.id?"":c.estado=="activo"?"":"off"}">${c.id===me.id?"Admin · Mi ficha":c.estado}</span></td><td><button class="btn sm" onclick="sel='${c.id}';draw()">Abrir</button> <button class="btn ghost sm" onclick="setEstado('${c.id}','${c.estado=="activo"?"inactivo":"activo"}')" ${c.id===me.id?"disabled":""}>${c.estado=="activo"?"Desactivar":"Activar"}</button> <button class="btn danger sm" onclick="deleteClient('${c.id}')" ${c.role!=="client"?"disabled":""}>Eliminar</button></td></tr>`).join("")||'<tr><td class="muted">Aún no hay clientes registrados</td></tr>'}</table></div>`},async a_planes(){if(dietImportMode)return await dietPdfImporterView();if(planDraft)return await planEditor();const[c,p]=await Promise.all([sb.from("profiles").select("id,nombre,email").eq("role","client").order("nombre"),sb.from("plans").select("*").order("created_at",{ascending:false}).limit(100)]);return `<h1>Planes <em>de asesoría</em></h1><div class="card pdf-import-cta"><div><span class="tag">NUEVO</span><h3 style="margin:10px 0 4px;color:#fff">Crear dieta desde PDF</h3><p class="muted" style="margin:0">Importa una tabla, revisa alimentos y calcula sus macros.</p></div><button class="btn" onclick="openDietPdfImporter()">↑ Subir PDF</button></div><div class="card"><h3>Crear planificación</h3><div class="row"><label>Cliente<select id="planClient">${(c.data||[]).map(x=>'<option value="'+x.id+'">'+esc(x.nombre||x.email)+'</option>').join("")}</select></label><button class="btn" onclick="newPlan('dieta')">+ Crear dieta</button><button class="btn" onclick="newPlan('entreno')">+ Crear entrenamiento</button></div><p class="muted">Cada publicación crea una nueva versión y conserva las anteriores.</p></div><div class="card scroll"><table><tr><th>Cliente</th><th>Tipo</th><th>Plan</th><th>Versión</th><th>Estado</th><th></th></tr>${(p.data||[]).map(x=>'<tr><td>'+esc((c.data||[]).find(y=>y.id===x.client_id)?.nombre||"Cliente")+'</td><td>'+esc(x.tipo)+'</td><td>'+esc(x.nombre)+'</td><td>v'+x.version+'</td><td>'+(x.activo?'<span class="tag">Activo</span>':'<span class="tag off">Histórico</span>')+'</td><td><button class="btn sm ghost" onclick="editPlan(\''+x.id+'\')">Ver / nueva versión</button> <button class="btn sm ghost" onclick="saveExistingPlanAsTemplate(\''+x.id+'\')">Guardar plantilla</button></td></tr>').join("")||'<tr><td colspan="6">Todavía no hay planes.</td></tr>'}</table></div>`},
+async a_clientes(){if(sel)return await clientV(sel);const [{data},{data:templates,error:te}]=await Promise.all([sb.from("profiles").select("*").or("role.eq.client,id.eq."+me.id).order("created_at",{ascending:false}),sb.from("templates").select("id,nombre,tipo").eq("tipo","dieta").order("nombre")]);return`<h1><em>Clientes</em></h1><div class="card"><h3>+ Invitar cliente y preparar su plan</h3><p class="muted">El cliente rellenará sus datos personales y de salud al aceptar la invitación. Tú solo defines el objetivo, los macros y la plantilla de dieta.</p><label>Correo electrónico del cliente<input id="inviteEmail" type="email" placeholder="cliente@correo.com" autocomplete="email"></label><div class="row"><label>Objetivo principal<input id="inviteObjective" placeholder="Pérdida de grasa, ganancia muscular, recomposición…"></label></div><h3>Objetivos nutricionales diarios</h3><div class="row">${F("inviteKcal","Kcal objetivo")}${F("inviteProtein","Proteína (g)")}${F("inviteFat","Grasas (g)")}${F("inviteCarbs","Hidratos (g)")}</div><p class="muted">La app ajustará los gramos de cada alimento de la plantilla para aproximarse a las kcal y macros indicados.</p><h3>Plantilla de dieta</h3><label>Elige la dieta<select id="inviteTemplate"><option value="">Selecciona una plantilla…</option>${(templates||[]).map(t=>'<option value="'+t.id+'">'+esc(t.nombre)+'</option>').join("")}</select></label><p class="muted" style="font-size:12px">${te?"No se pudieron cargar las plantillas: "+esc(te.message):"Se conservan las comidas y alimentos de la plantilla seleccionada y se recalculan sus cantidades."}</p><button class="btn" id="inviteBtn" onclick="inviteClient()">Enviar invitación y generar dieta</button></div><div class="card scroll"><table><tr><th>Nombre</th><th>Correo</th><th>Objetivo</th><th>Kcal</th><th>Estado</th><th></th></tr>${(data||[]).map(c=>`<tr><td>${esc(c.nombre)||"-"}${c.id===me.id?' <span class="tag">Tu ficha</span>':""}</td><td>${esc(c.email)}</td><td>${esc(c.objetivo)}</td><td>${c.kcal_objetivo||"—"}</td><td><span class="tag ${c.id===me.id?"":c.estado=="activo"?"":"off"}">${c.id===me.id?"Admin · Mi ficha":c.estado}</span></td><td><button class="btn sm" onclick="sel='${c.id}';draw()">Abrir</button> <button class="btn ghost sm" onclick="setEstado('${c.id}','${c.estado=="activo"?"inactivo":"activo"}')" ${c.id===me.id?"disabled":""}>${c.estado=="activo"?"Desactivar":"Activar"}</button> <button class="btn danger sm" onclick="deleteClient('${c.id}')" ${c.role!=="client"?"disabled":""}>Eliminar</button></td></tr>`).join("")||'<tr><td class="muted">Aún no hay clientes registrados</td></tr>'}</table></div>`},async a_planes(){
+ if(dietImportMode)return await dietPdfImporterView();
+ if(planDraft)return await planEditor();
+ const[c,p]=await Promise.all([sb.from("profiles").select("id,nombre,email").eq("role","client").order("nombre"),sb.from("plans").select("*").order("created_at",{ascending:false}).limit(100)]);
+ if(c.error||p.error)throw(c.error||p.error);
+ const type=adminPlansTab==="entreno"?"entreno":"dieta";
+ const rows=(p.data||[]).filter(x=>x.tipo===type);
+ const clientName=id=>{const x=(c.data||[]).find(y=>y.id===id);return esc(x?.nombre||x?.email||"Cliente")};
+ return `<h1>Planes <em>administrados</em></h1>
+ <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px">
+  <button class="btn ${type==="dieta"?"":"ghost"}" onclick="adminPlansTab='dieta';draw()">Planes nutricionales</button>
+  <button class="btn ${type==="entreno"?"":"ghost"}" onclick="adminPlansTab='entreno';draw()">Planes de entrenamiento</button>
+ </div>
+ ${type==="dieta"?`<div class="card pdf-import-cta"><div><span class="tag">IMPORTAR PDF</span><h3 style="margin:10px 0 4px;color:#fff">Crear plan nutricional desde PDF</h3><p class="muted" style="margin:0">Lee las comidas, cantidades y versiones de entrenamiento y descanso.</p></div><button class="btn" onclick="openDietPdfImporter()">↑ Subir PDF</button></div>`:""}
+ <div class="card"><h3>Crear ${type==="dieta"?"plan nutricional":"plan de entrenamiento"}</h3><div class="row"><label>Cliente<select id="planClient">${(c.data||[]).map(x=>'<option value="'+x.id+'">'+esc(x.nombre||x.email)+'</option>').join("")}</select></label><button class="btn" onclick="newPlan('${type}')">+ Crear ${type==="dieta"?"plan nutricional":"entrenamiento"}</button></div><p class="muted">Cada publicación crea una nueva versión y conserva las anteriores en el histórico.</p></div>
+ <div class="card scroll"><table><tr><th>Cliente</th><th>Plan</th><th>Versión</th><th>Estado</th><th></th></tr>${rows.map(x=>'<tr><td>'+clientName(x.client_id)+'</td><td>'+esc(x.nombre)+'</td><td>v'+x.version+'</td><td>'+(x.activo?'<span class="tag">Activo</span>':'<span class="tag off">Histórico</span>')+'</td><td><button class="btn sm ghost" onclick="editPlan(\''+x.id+'\')">Ver / nueva versión</button> <button class="btn sm ghost" onclick="saveExistingPlanAsTemplate(\''+x.id+'\')">Guardar plantilla</button></td></tr>').join("")||'<tr><td colspan="5" class="muted">Todavía no hay planes de este tipo.</td></tr>'}</table></div>`;
+ },
 async a_biblioteca(){const [f,e]=await Promise.all([sb.from("foods").select("*").order("nombre"),sb.from("exercises").select("*").order("nombre")]);foodsCache=f.data||[];exCache=e.data||[];return `<h1>Biblioteca <em>de recursos</em></h1><div class="grid"><div class="card"><h3>Nuevo alimento</h3><div class="row">${F("foodName","Nombre","text")}${F("foodK","Kcal / 100 g")}${F("foodP","Proteína / 100 g")}${F("foodC","Hidratos / 100 g")}${F("foodG","Grasas / 100 g")}${F("foodUnit","Peso por unidad (g)")}</div><button class="btn" onclick="saveFood()">Guardar alimento</button><div class="scroll"><table><tr><th>Alimento</th><th>Kcal</th><th>P</th><th>HC</th><th>G</th><th>Peso unidad</th></tr>${foodsCache.map(x=>'<tr><td>'+esc(x.nombre)+'</td><td>'+x.kcal_100+'</td><td>'+x.prot_100+'</td><td>'+x.hc_100+'</td><td>'+x.grasa_100+'</td><td>'+(x.peso_unidad_g?x.peso_unidad_g+' g':'—')+'</td></tr>').join("")}</table></div></div><div class="card"><h3>Nuevo ejercicio</h3><div class="row">${F("exName","Nombre","text")}${F("exGroup","Grupo muscular","text")}${F("exVideo","URL vídeo","url")}</div><label>Indicaciones<textarea id="exNotes" rows="2"></textarea></label><button class="btn" onclick="saveExercise()">Guardar ejercicio</button><div class="scroll"><table><tr><th>Ejercicio</th><th>Grupo</th><th>Vídeo</th></tr>${exCache.map(x=>'<tr><td>'+esc(x.nombre)+'</td><td>'+esc(x.grupo_principal)+'</td><td>'+(x.video_url?'<a target="_blank" rel="noopener" href="'+esc(x.video_url)+'">Ver</a>':'—')+'</td></tr>').join("")}</table></div></div></div>`},
 async a_plantillas(){
  const {data,error}=await sb.from("templates").select("*").order("created_at",{ascending:false});
@@ -608,24 +624,85 @@ async function parseDietPdf(){
  try{
   const {data:foods,error}=await sb.from("foods").select("*").order("nombre");if(error)throw error;foodsCache=foods||[];
   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;let lines=[];
-  for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p),content=await page.getTextContent(),groups=new Map();for(const item of content.items){if(!item.str||!item.str.trim())continue;let y=Math.round(item.transform[5]/3)*3;let arr=groups.get(y)||[];arr.push({x:item.transform[4],s:item.str.trim()});groups.set(y,arr)}for(const [y,items] of groups){items.sort((a,b)=>a.x-b.x);lines.push({page:p,y,text:items.map(x=>x.s).join("  ")})}}
-  lines.sort((a,b)=>a.page-b.page||b.y-a.y);
-  const meals={training:[],recovery:[]},notes=[],warnings=[];let currentMeal=null,detected=0,omitted=0;
-  const parseOpt=s=>{s=String(s||"").replace(/^[\s\-–—•]+/,"").trim();const m=s.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\s*(.*)$/i);if(!m)return null;const amount=Number(m[1].replace(",",".")),unit=m[2].toLowerCase(),name=(m[3]||"").replace(/^[\s:,-]+/,"").trim();if(!amount||!name)return null;const food=matchDietFood(name);return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit}};
-  const rowFor=opts=>{const x=opts[0];return {...x,source_name:x.source_name,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}};
-  for(const r of lines){let line=r.text.replace(/\s+/g," ").trim();if(!line)continue;
-   const h=line.match(/\bCOMIDA\s*([1-9])\b/i);if(h){currentMeal={name:"Comida "+h[1],foods:[]};meals.training.push(currentMeal);meals.recovery.push({name:currentMeal.name,foods:[]});line=line.replace(h[0]," ").trim();if(!line)continue}
-   const off=line.match(/\(\s*d[ií]as?\s*off\s*([^)]*)\)/i),main=line.replace(/\(\s*d[ií]as?\s*off[^)]*\)/ig," ").replace(/^[\s\-–—•]+/,"").trim();
-   if(!/\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b/i.test(main)){if(line.length>3)notes.push(line);continue}
-   if(!currentMeal){currentMeal={name:"Comida 1",foods:[]};meals.training.push(currentMeal);meals.recovery.push({name:"Comida 1",foods:[]})}
-   const mainOpts=main.split(/\/\/+/).map(parseOpt).filter(Boolean),offOpts=off?off[1].split(/\/\/+/).map(parseOpt).filter(Boolean):null;if(!mainOpts.length){notes.push(line);continue}
-   currentMeal.foods.push(rowFor(mainOpts));const rm=meals.recovery[meals.recovery.length-1];
-   if(offOpts?.length)rm.foods.push(rowFor(offOpts));else if(/sin este/i.test(line))omitted++;else rm.foods.push(rowFor(mainOpts));detected++;
+  const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise;
+  const pageRows=[];let hasMealColumn=false;
+  for(let p=1;p<=pdf.numPages;p++){
+   const page=await pdf.getPage(p),content=await page.getTextContent(),groups=new Map();
+   for(const item of content.items){
+    if(!item.str||!item.str.trim())continue;
+    const y=Math.round(item.transform[5]/2)*2,x=item.transform[4];
+    const arr=groups.get(y)||[];arr.push({x,s:item.str.trim()});groups.set(y,arr);
+   }
+   const rows=[];
+   for(const [y,items] of groups){
+    items.sort((a,b)=>a.x-b.x);
+    const left=items.filter(x=>x.x<190).map(x=>x.s).join(" ").replace(/\s+/g," ").trim();
+    const right=items.filter(x=>x.x>=190).map(x=>x.s).join(" ").replace(/\s+/g," ").trim();
+    const marker=left.match(/\bCOMIDA\s*([1-9])\b/i);
+    if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:right,section:left});}
+    else if(right)rows.push({page:p,y,meal:null,text:right,section:left});
+   }
+   pageRows.push(...rows);
   }
-  if(!detected)throw Error("No se han detectado filas con cantidades. El PDF puede ser escaneado o tener otra estructura.");
+  const meals={training:[],recovery:[]},notes=[],warnings=[];let detected=0,omitted=0;
+  const parseOpt=s=>{
+   s=String(s||"").replace(/^[\s\-–—•]+/,"").trim();
+   const m=s.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\s*(.*)$/i);
+   if(!m)return null;
+   let amount=Number(m[1].replace(",",".")),unit=m[2].toLowerCase(),name=(m[3]||"").replace(/^[\s:,-]+/,"").trim();
+   if(!amount||!name)return null;
+   const food=matchDietFood(name);
+   if(unit==="huevo"||unit==="huevos"||unit==="ud"||unit==="uds"||unit.startsWith("unidad")){
+    amount*=Number(food?.peso_unidad_g)||(unit.startsWith("huevo")?50:1);unit="g";
+   }else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
+   return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
+  };
+  const parseFirstChoice=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
+  const rowFor=opts=>opts.map(x=>({...x,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+  const addLine=(meal,line)=>{
+   const off=line.match(/\(\s*d[ií]as?\s*off\s*([^)]*)\)/i);
+   const main=line.replace(/\(\s*d[ií]as?\s*off[^)]*\)/ig," ").replace(/^[\s\-–—•]+/,"").trim();
+   if(!/\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b/i.test(main))return false;
+   const mainOptions=main.split(/\/\/+/).map(parseFirstChoice).find(x=>x.length)||[];
+   const offOptions=off?off[1].split(/\/\/+/).map(parseFirstChoice).find(x=>x.length)||[]:null;
+   if(!mainOptions.length)return false;
+   meal.training.foods.push(...rowFor(mainOptions));
+   if(offOptions?.length)meal.recovery.foods.push(...rowFor(offOptions));
+   else if(/sin este\s*d[ií]as?\s*off/i.test(line))omitted++;
+   else meal.recovery.foods.push(...rowFor(mainOptions));
+   detected++;return true;
+  };
+  if(hasMealColumn){
+   const markers=pageRows.filter(x=>x.meal);
+   for(const r of pageRows){
+    if(r.meal||!r.text)continue;
+    if(/^(AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(r.section)){notes.push(r.text);continue}
+    if(/^(NOTA\s*:|SUPLEMENTACI[ÓO]N|OPCIONAL\b)/i.test(r.text)){notes.push(r.text);continue}
+    if(!/\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b/i.test(r.text)){if(r.text.length>12)notes.push(r.text);continue}
+    const samePage=markers.filter(m=>m.page===r.page);
+    if(!samePage.length)continue;
+    const nearest=samePage.reduce((best,m)=>Math.abs(m.y-r.y)<Math.abs(best.y-r.y)?m:best,samePage[0]);
+    const idx=nearest.meal-1;
+    meals.training[idx]??={name:"Comida "+nearest.meal,foods:[]};
+    meals.recovery[idx]??={name:"Comida "+nearest.meal,foods:[]};
+    addLine({training:meals.training[idx],recovery:meals.recovery[idx]},r.text);
+   }
+   for(let i=0;i<5;i++){if(!meals.training[i])meals.training[i]={name:"Comida "+(i+1),foods:[]};if(!meals.recovery[i])meals.recovery[i]={name:"Comida "+(i+1),foods:[]}}
+  }else{
+   let currentMeal=null;
+   for(const r of pageRows){
+    let line=r.text.replace(/\s+/g," ").trim();if(!line)continue;
+    const h=line.match(/\bCOMIDA\s*([1-9])\b/i);
+    if(h){const idx=Number(h[1])-1;currentMeal={training:meals.training[idx]||{name:"Comida "+h[1],foods:[]},recovery:meals.recovery[idx]||{name:"Comida "+h[1],foods:[]}};meals.training[idx]=currentMeal.training;meals.recovery[idx]=currentMeal.recovery;line=line.replace(h[0]," ").trim();if(!line)continue}
+    if(!currentMeal){currentMeal={training:{name:"Comida 1",foods:[]},recovery:{name:"Comida 1",foods:[]}};meals.training.push(currentMeal.training);meals.recovery.push(currentMeal.recovery)}
+    if(!addLine(currentMeal,line)&&line.length>3)notes.push(line);
+   }
+  }
+  meals.training=meals.training.filter(Boolean);meals.recovery=meals.recovery.filter(Boolean);
+  if(!detected)throw Error("No se han detectado alimentos. Comprueba que el PDF contiene texto seleccionable y que su estructura es compatible.");
   const calc=arr=>arr.reduce((a,m)=>{m.foods.forEach(x=>{let q=(+x.grams||0)/100;a.k+=(+x.kcal_100||0)*q;a.p+=(+x.prot_100||0)*q;a.c+=(+x.hc_100||0)*q;a.g+=(+x.grasa_100||0)*q});return a},{k:0,p:0,c:0,g:0});
-  const unmatched=[...meals.training,...meals.recovery].flatMap(m=>m.foods).filter(x=>!x.food_id).length;if(unmatched)warnings.push(unmatched+" opciones necesitan relacionarse con la biblioteca antes de publicar.");
+  const unmatched=[...meals.training,...meals.recovery].flatMap(m=>m.foods).filter(x=>!x.food_id).length;
+  if(unmatched)warnings.push(unmatched+" alimentos necesitan relacionarse con la biblioteca antes de publicar.");
   if(omitted)warnings.push(omitted+" alimento(s) marcados «sin este días OFF» se han omitido en descanso.");
   if(notes.length)warnings.push(notes.length+" indicaciones de ayuno, entrenamiento, suplementación y observaciones se han conservado.");
   const t=calc(meals.training),r=calc(meals.recovery);
