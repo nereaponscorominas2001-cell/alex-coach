@@ -668,17 +668,29 @@ async function parseDietPdf(){
   const parseFirstChoice=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
   const rowFor=opts=>opts.map(x=>({...x,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
   const addLine=(meal,line)=>{
-   const off=line.match(/\(\s*d[ií]as?\s*off\s*([^)]*)\)/i);
-   const main=line.replace(/\(\s*d[ií]as?\s*off[^)]*\)/ig," ").replace(/^[\s\-–—•]+/,"").trim();
-   if(!/\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b/i.test(main))return false;
-   const mainOptions=main.split(/\/\/+/).map(parseFirstChoice).find(x=>x.length)||[];
-   const offOptions=off?off[1].split(/\/\/+/).map(parseFirstChoice).find(x=>x.length)||[]:null;
-   if(!mainOptions.length)return false;
-   meal.training.foods.push(...rowFor(mainOptions));
-   if(offOptions?.length)meal.recovery.foods.push(...rowFor(offOptions));
-   else if(/sin este\s*d[ií]as?\s*off/i.test(line))omitted++;
-   else meal.recovery.foods.push(...rowFor(mainOptions));
-   detected++;return true;
+   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim();
+   const chunks=clean.split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i);
+   let added=0;
+   for(const raw of chunks){
+    const first=raw.split(/\s*\/\/\s*/)[0].trim();
+    const m=first.match(/^([\s\S]*?)\s*\(([^)]*)\)\s*$/);
+    const base=(m?m[1]:first).trim();
+    const annotation=m?m[2].trim():"";
+    const main=parseOpt(base);
+    if(!main)continue;
+    meal.training.foods.push(...rowFor([main]));
+    let rest=main;
+    if(/sin este\s*d[ií]as?\s*off/i.test(annotation)){omitted++;rest=null;}
+    else if(/d[ií]as?\s*off/i.test(annotation)){
+     let offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").trim();
+     offText=offText.replace(/^cambiamos\s+por\s*/i,"").replace(/^por\s*/i,"").trim();
+     if(offText){const off=parseOpt(offText.split(/\s*\/\/\s*/)[0]);if(off)rest=off;}
+    }
+    if(rest)meal.recovery.foods.push(...rowFor([rest]));
+    added++;
+   }
+   if(added)detected++;
+   return added>0;
   };
   if(hasMealColumn){
    const markers=pageRows.filter(x=>x.meal);
