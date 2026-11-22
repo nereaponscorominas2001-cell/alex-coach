@@ -819,27 +819,73 @@ async function parseTrainingPdf(){
  try{
   pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   const pdf=await pdfjsLib.getDocument({data:await file.arrayBuffer()}).promise,lines=[];
-  for(let p=1;p<=pdf.numPages;p++){const page=await pdf.getPage(p),content=await page.getTextContent(),rows=new Map();for(const item of content.items){if(!item.str||!item.str.trim())continue;const y=Math.round(item.transform[5]/2)*2,a=rows.get(y)||[];a.push({x:item.transform[4],s:item.str.trim()});rows.set(y,a)}for(const [y,a] of rows){a.sort((x,z)=>x.x-z.x);const line=a.map(x=>x.s).join(" ").replace(/\s+/g," ").trim();if(line)lines.push({page:p,y,text:line})}}
-  lines.sort((a,b)=>a.page-b.page||b.y-a.y);
-  const days=[],general=[],warnings=[];let current=null,inPriorities=false;
-  const dayRx=/^(LUNES|MARTES|MIÉRCOLES|MIERCOLES|JUEVES|VIERNES|SÁBADO|SABADO|DOMINGO)(?:\s*[|·—-]\s*|\s+)(.+)$/i;
-  const clean=s=>String(s||"").replace(/\s+/g," ").trim();
-  for(const row of lines){let line=clean(row.text);if(!line)continue;const heading=line.match(dayRx);
-   if(heading){current={name:heading[1].charAt(0).toUpperCase()+heading[1].slice(1).toLowerCase()+" · "+clean(heading[2]),description:"",notes:"",cardio:"",exercises:[]};days.push(current);inPriorities=false;continue}
-   if(!current){if(!/^(ejercicio|series|repeticiones|plan semanal|distribución semanal)/i.test(line))general.push(line);continue}
-   if(/^prioridades de ejecución|^indicaciones|^notas/i.test(line)){inPriorities=true;continue}
-   if(/^ejercicio\s+series\s+repeticiones/i.test(line)||/^ejercicio\s+series/i.test(line))continue;
-   if(/^alex vicent|^plan de temporada|^objetivo semanal/i.test(line)) {general.push(line);continue}
-   if(/^[-•–]\s*/.test(line)){if(inPriorities)current.notes+=(current.notes?"\n":"")+line.replace(/^[-•–]\s*/,"");else current.description+=(current.description?" ":"")+line.replace(/^[-•–]\s*/,"");continue}
-   const m=line.match(/^(.*?)\s+(\d{1,2})\s+((?:\d{1,3}(?:[.,]\d+)?\s*(?:[-–]\s*\d{1,3}(?:[.,]\d+)?|por\s+(?:lado|pierna)|s|min(?:utos)?)?)|(?:\d+\s*min(?:utos)?))$/i);
-   if(m&&m[1].length>2&&!/^(total|series|repeticiones)$/i.test(m[1])){let name=clean(m[1]),reps=clean(m[3]);current.exercises.push({name,sets:Number(m[2]),reps,rest:90,notes:"",video_url:""});if(/stairmaster|cardio|cinta|bicicleta|elíptica|eliptica|caminar/i.test(name)||/min/i.test(reps))current.cardio+=(current.cardio?" · ":"")+name+" · "+m[2]+" × "+reps;inPriorities=false;continue}
-   if(/\b\d+\s*(?:min|minutos)\b/i.test(line)&&/stairmaster|cardio|cinta|bicicleta|elíptica|eliptica|caminar/i.test(line)){current.cardio+=(current.cardio?" · ":"")+line;continue}
-   if(inPriorities)current.notes+=(current.notes?"\n":"")+line;else if(!/^(volumen|sesión|sesion|mantenimiento|énfasis|enfasis|solo )/i.test(line))current.description+=(current.description?" ":"")+line;
+  for(let p=1;p<=pdf.numPages;p++){
+   const page=await pdf.getPage(p),content=await page.getTextContent(),rows=new Map();
+   for(const item of content.items){if(!item.str||!item.str.trim())continue;const y=Math.round(item.transform[5]/2)*2,a=rows.get(y)||[];a.push({x:item.transform[4],s:item.str.trim()});rows.set(y,a)}
+   for(const [y,a] of rows){a.sort((x,z)=>x.x-z.x);const line=a.map(x=>x.s).join(" ").replace(/\\s+/g," ").trim();if(line)lines.push({page:p,y,text:line})}
   }
-  if(!days.length)throw Error("No he detectado encabezados de días. Usa títulos como «LUNES | EMPUJE A» y tablas con Ejercicio, Series y Repeticiones.");
-  const total=days.reduce((n,d)=>n+d.exercises.length,0);if(!total)warnings.push("Se detectaron los días, pero no se reconocieron filas de ejercicios. Revisa si el PDF tiene texto seleccionable y columnas legibles.");
-  const unmatched=days.flatMap(d=>d.exercises).filter(x=>!x.name||!Number.isFinite(x.sets)||!x.reps);if(unmatched.length)warnings.push("Hay ejercicios que requieren revisión manual.");
-  trainingImport={fileName:file.name,client_id:document.querySelector("#trainingPdfClient")?.value||null,name:file.name.replace(/\.pdf$/i,""),goal:"",notes:general.join("\n"),days,warnings};
+  lines.sort((a,b)=>a.page-b.page||b.y-a.y);
+  const days=[],general=[],warnings=[];
+  const clean=s=>String(s||"").replace(/\\s+/g," ").trim();
+  const normalizeDay=s=>clean(s).replace(/^D[IÍ]A\\s*\\d+\\s*[|·—:-]?\\s*/i,"").replace(/^D[IÍ]A\\s*/i,"").trim();
+  const isHeading=line=>/^(?:D[IÍ]A\\s*\\d+\\s*[|·—:-]\\s*.+|(?:LUNES|MARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)\\s*[|·—:-]\\s*.+)$/i.test(line);
+  const addText=(obj,key,value,sep=" ")=>{if(value)obj[key]=(obj[key]?obj[key]+sep:"")+value};
+  const parseExercise=line=>{
+   let raw=clean(line).replace(/^[-•–]\\s*/,"");
+   const colon=raw.lastIndexOf(":");
+   let name=colon>1?clean(raw.slice(0,colon)):raw;
+   let prescription=colon>1?clean(raw.slice(colon+1)):"";
+   if(!prescription){
+    const match=raw.match(/^(.*?)(\\d+\\s*[x×]\\s*\\d[\\d\\s.,aA-]*(?:.*)?)$/);
+    if(match){name=clean(match[1]);prescription=clean(match[2])}
+   }
+   if(!prescription||name.length<3)return null;
+   const setsMatches=[...prescription.matchAll(/(\\d+)\\s*[x×]/gi)];
+   if(!setsMatches.length)return null;
+   const sets=setsMatches.reduce((n,m)=>n+Number(m[1]||0),0);
+   if(!sets)return null;
+   const first=prescription.match(/\\d+\\s*[x×]\\s*(.+)/i);
+   let reps=first?clean(first[1]):prescription;
+   reps=reps.replace(/\\s+/g," ").replace(/\\b(a|hasta)\\b/gi,"-").trim();
+   const notes=[];
+   const technique=prescription.match(/(?:\\d+\\s*[x×]\\s*[^/]+\\s*)?(?:TP\\s*\\/\\s*\\d+\\s*[x×][^,;]+BO|TP\\s*\\/[^,;]+BO|\\bTP\\b|\\bBO\\b)/i);
+   if(technique)notes.push("Método/series especiales: "+clean(prescription));
+   const trailing=prescription.replace(/^\\d+\\s*[x×]\\s*/i,"");
+   if(/pausa|segundos|estiramiento|RIR|fallo|máximas|máximos|TP|BO/i.test(trailing)&&!technique)notes.push(clean(trailing));
+   const cardio=/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name);
+   return {name,sets,reps:reps||prescription,rest:90,notes:notes.join(" · "),video_url:"",_cardio:cardio};
+  };
+  let current=null;
+  for(const row of lines){
+   const line=clean(row.text);if(!line)continue;
+   if(isHeading(line)){
+    const name=normalizeDay(line);
+    current={name:name||("Día "+(days.length+1)),description:"",notes:"",cardio:"",exercises:[]};days.push(current);continue;
+   }
+   if(!current){
+    if(!/^(?:image|ejercicio|series|repeticiones|plan semanal|distribuci[oó]n semanal)$/i.test(line))general.push(line);
+    continue;
+   }
+   if(/^(?:trabajo de zona media|zona media|abdominales?)\\s*:?/i.test(line)){addText(current,"notes",line,"\\n");continue}
+   if(/^prioridades de ejecuci[oó]n|^indicaciones|^notas/i.test(line)){addText(current,"notes",line,"\\n");continue}
+   if(/^ejercicio\\s+series\\s+repeticiones/i.test(line)||/^[-| ]*(?:-----|ejercicio|series|repeticiones)[-| ]*$/i.test(line))continue;
+   if(/^alex vicent|^plan de temporada|^objetivo semanal/i.test(line)){general.push(line);continue}
+   if(/^[-•–]\\s*/.test(line)){addText(current,"notes",line.replace(/^[-•–]\\s*/,""),"\\n");continue}
+   const exercise=parseExercise(line);
+   if(exercise){
+    const { _cardio,...saved }=exercise;current.exercises.push(saved);
+    if(_cardio||/\\b\\d+\\s*(?:min|minutos)\\b/i.test(line))addText(current,"cardio",line," · ");
+    continue;
+   }
+   if(/\\b\\d+\\s*(?:min|minutos)\\b/i.test(line)&&/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(line)){addText(current,"cardio",line," · ");continue}
+   addText(current,"notes",line,"\\n");
+  }
+  if(!days.length)throw Error("No he detectado sesiones. Se admiten encabezados como «DÍA 1 | EMPUJES A», «DÍA 2 | TIRONES A» o «LUNES | PIERNA».");
+  const total=days.reduce((n,d)=>n+d.exercises.length,0);
+  if(!total)warnings.push("Se detectaron las sesiones, pero no los ejercicios. Comprueba que el PDF tenga texto seleccionable; los PDF escaneados necesitan OCR.");
+  if(days.some(d=>!d.exercises.length))warnings.push("Hay sesiones sin ejercicios reconocidos. Revísalas antes de publicar.");
+  if(days.some(d=>d.exercises.some(x=>/TP|BO|RIR|pausa/i.test(x.reps))))warnings.push("Se han conservado las técnicas especiales dentro de la prescripción. Comprueba las series TP/BO y las indicaciones.");
+  trainingImport={fileName:file.name,client_id:document.querySelector("#trainingPdfClient")?.value||null,name:file.name.replace(/\\.pdf$/i,""),goal:"",notes:general.join("\\n"),days,warnings};
   trainingImportMode=true;trainingPdfFile=null;await draw();
  }catch(e){console.error("PDF training import:",e);alert("No se ha podido leer el PDF: "+(e.message||"Error desconocido"))}
 }
