@@ -142,7 +142,8 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .review-pill b{color:#B6F36B;margin-left:3px}
 @media(max-width:620px){.review-overview{grid-template-columns:1fr 1fr}.review-overview .review-kpi:last-child{grid-column:1/-1}}
 
- .pdf-set-switch{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.diet-food-options{font-size:12px;color:#b6f36b;margin-top:4px;line-height:1.45}.pdf-import-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;border-color:rgba(182,243,107,.38);background:linear-gradient(120deg,#182111,#171717 65%)}
+ .pdf-set-switch{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.diet-swap-control{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;color:var(--lime);font-size:11px;font-weight:800}.diet-swap-control select{max-width:260px;min-width:160px;background:#171717;color:var(--wh);border:1px solid #454545;border-radius:9px;padding:8px;font-size:12px}.diet-swap-control select:focus{outline:1px solid var(--lime);border-color:var(--lime)}
+.diet-food-options{font-size:12px;color:#b6f36b;margin-top:4px;line-height:1.45}.pdf-import-cta{display:flex;align-items:center;justify-content:space-between;gap:16px;border-color:rgba(182,243,107,.38);background:linear-gradient(120deg,#182111,#171717 65%)}
 .pdf-dropzone{border:1px dashed #607d45;background:#0b0d09;border-radius:14px;padding:25px 16px;text-align:center;margin-top:18px}
 .pdf-dropzone b{display:block;font-size:18px;margin:5px 0}
 .pdf-dropzone input{max-width:420px;margin:12px auto 0;background:#151515}
@@ -631,6 +632,22 @@ async function parseDietPdf(){
   dietImport={fileName:file.name,client_id:document.querySelector("#pdfClient")?.value||null,name:file.name.replace(/\.pdf$/i,""),goal:"",notes:notes.join("\n\n"),meals:meals.training,recoveryMeals:meals.recovery,activeSet:"training",targetsTraining:{kcal:Math.round(t.k),protein:Math.round(t.p),carbs:Math.round(t.c),fat:Math.round(t.g)},targetsRecovery:{kcal:Math.round(r.k),protein:Math.round(r.p),carbs:Math.round(r.c),fat:Math.round(r.g)},warnings};
   dietImportMode=true;dietPdfFile=null;await draw();
  }catch(e){console.error("PDF diet import:",e);alert("No se ha podido leer el PDF: "+(e.message||"Error desconocido"))}
+}
+var dietSwapFoods=[];
+function dietFoodCategory(f){
+ const h=Math.max(0,+f.hc_100||0)*4,p=Math.max(0,+f.prot_100||0)*4,g=Math.max(0,+f.grasa_100||0)*9;
+ if(Math.max(h,p,g)<=0)return "H";
+ return h>=p&&h>=g?"H":p>=g?"P":"G";
+}
+function changeDietFood(planId,set,mealIndex,foodIndex,foodId,baseGrams,baseMacro,macroKey){
+ const key="diet-swaps:"+me.id+":"+planId+":"+set;let swaps={};try{swaps=JSON.parse(localStorage.getItem(key)||"{}")}catch(e){}
+ const rowKey=mealIndex+":"+foodIndex;
+ if(!foodId){delete swaps[rowKey];localStorage.setItem(key,JSON.stringify(swaps));return draw()}
+ const f=dietSwapFoods.find(x=>String(x.id)===String(foodId));if(!f)return alert("No se ha encontrado ese alimento en la biblioteca.");
+ const density=+f[macroKey]||0,sourceAmount=(+baseGrams||0)*(+baseMacro||0)/100;
+ if(density<=0||sourceAmount<=0)return alert("No se puede calcular una equivalencia para este alimento.");
+ const grams=Math.round(sourceAmount/density*1000)/10;
+ swaps[rowKey]={food_id:f.id,grams};localStorage.setItem(key,JSON.stringify(swaps));draw();
 }
 function dietImportCurrentMeals(){return dietImport?.activeSet==="recovery"?dietImport.recoveryMeals:dietImport.meals}
 function switchImportedSet(set){const d=dietImport;if(!d)return;const t=d.activeSet==="recovery"?d.targetsRecovery:d.targetsTraining;for(const [id,key] of [["pdfTargetK","kcal"],["pdfTargetP","protein"],["pdfTargetC","carbs"],["pdfTargetG","fat"]]){const el=document.getElementById(id);if(el)t[key]=Number(el.value)||0}d.activeSet=set;draw()}
