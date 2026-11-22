@@ -561,10 +561,10 @@ async function assignTemplateToClient(clientId){
  if(!client)return alert("No se ha encontrado ese cliente activo. Actualiza la lista.");
  const clientName=[client.nombre,client.apellidos].filter(Boolean).join(" ")||client.email||"el cliente";
  if(!confirm("¿Asignar \""+t.nombre+"\" a "+clientName+"? Se publicará una nueva versión y el plan activo anterior pasará al histórico."))return;
- const {data:previous,error:previousError}=await sb.from("plans").select("id,version").eq("client_id",clientId).eq("tipo",t.tipo).order("version",{ascending:false});
+ const {data:previous,error:previousError}=await sb.from("plans").select("id,version,activo").eq("client_id",clientId).eq("tipo",t.tipo).order("version",{ascending:false});
  if(previousError)return alert("No se pudo comprobar el plan anterior: "+previousError.message);
  const version=(previous?.[0]?.version||0)+1;
- const oldIds=(previous||[]).map(p=>p.id);
+ const oldIds=(previous||[]).filter(p=>p.activo).map(p=>p.id);
  if(oldIds.length){
   const archived=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo",t.tipo).eq("activo",true);
   if(archived.error)return alert("No se pudo archivar el plan anterior: "+archived.error.message);
