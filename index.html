@@ -731,7 +731,7 @@ async function parseDietPdf(){
      else mealNo=carry;
      if(/SUPLEMENTACI[ÓO]N|OBSERVACIONES|AYUNO|ENTRENAMIENTO|NOTA\s*:/i.test(r.text+" "+r.section))continue;
       // En la primera página, todo lo situado antes del encabezado COMIDA 1 pertenece al bloque previo (ayuno) y no se importa.
-      if(pageNo===1&&Number.isFinite(firstMarker)&&r.y>firstMarker)continue;
+      // No descartar por altura: en este PDF los alimentos de COMIDA 1 aparecen por encima de su rótulo.
      if(!byMeal.has(mealNo))byMeal.set(mealNo,[]);
      byMeal.get(mealNo).push(r.text);
     }
