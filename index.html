@@ -615,7 +615,7 @@ const dietFoodAliases={
  "aove":"aceite de oliva","aceite oliva":"aceite de oliva","proteina":"whey protein","whey":"whey protein",
  "claras":"clara de huevo","clara":"clara de huevo","huevo":"huevo entero","huevos":"huevo entero","avena":"avena en copos","pan":"pan blanco",
  "cereales mix mercadona 0":"cereales mix hacendado 0","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz",
- "pescado azul":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati",
+ "pescado azul":"pescado azul","frutos rojos":"frutos rojos","fresas":"frutos rojos","fruto rojo":"frutos rojos","frutos rojos o fresas":"frutos rojos","arroz largo o basmati":"arroz basmati",
  "pasta de cualquier tipo":"pasta de trigo","burgers ternera o potro":"burger de ternera",
  "ternera picada para las fajitas":"ternera picada 99 carne cruda","carne roja":"ternera picada 99 carne cruda",
  "tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo cruda",
@@ -693,6 +693,7 @@ async function parseDietPdf(){
   let excluded=0;
   const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).map(x=>x.trim()).filter(Boolean);
   const excludedLine=s=>/vegetales|verduras|gelatina\s*0\s*%/i.test(String(s||""));
+   const optionalSupplementNote=s=>/lim[oó]n.*glutamina|glutamina.*lim[oó]n|vinagre\s+de\s+manzana/i.test(String(s||""));
   const makeRows=(groupText,offText)=>{
    const trainOptions=splitChoices(groupText).map(splitItems).filter(x=>x.length);
    if(!trainOptions.length)return null;
@@ -707,7 +708,8 @@ async function parseDietPdf(){
   };
   const addLine=(meal,line)=>{
    const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|mll|ml|cl|l)\b)/gi,"$1$2");if(!clean)return false;
-   if(/^(?:AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(clean)||excludedLine(clean)){excluded++;return false;}
+   if(optionalSupplementNote(clean))return false;
+    if(/^(?:AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(clean)||excludedLine(clean)){excluded++;return false;}
    const m=clean.match(/^(.*?)\s*\(([^)]*d[ií]as?\s*off[^)]*)\)\s*$/i);
    const base=(m?m[1]:clean).trim(),annotation=m?m[2]:"";
    let offText="";
