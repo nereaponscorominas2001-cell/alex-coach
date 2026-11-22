@@ -665,31 +665,29 @@ async function parseDietPdf(){
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
   };
   const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
-  const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).flatMap(part=>{const pieces=part.split(/\s+o\s+/i);if(pieces.length<2)return [part.trim()];const m=pieces[0].trim().match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\s*(.*)$/i);return pieces.map((x,i)=>i===0?x.trim():(/^\d/.test(x.trim())?x.trim():(m?m[1]+m[2]+" "+x.trim():x.trim())))}).map(x=>x.trim()).filter(Boolean);
+  let excluded=0;
+  const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).map(x=>x.trim()).filter(Boolean);
+  const excludedLine=s=>/vegetales|verduras|gelatina\s*0\s*%/i.test(String(s||""));
   const makeRows=(groupText,offText)=>{
-   const trainChoices=splitChoices(groupText),offChoices=offText?splitChoices(offText):trainChoices;
-   const primary=splitItems(trainChoices[0]||"");
-   if(!primary.length)return null;
-   const training=primary.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?trainChoices.slice(1).map(parseOpt).filter(Boolean):[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
-   const rest=splitItems(offChoices[0]||"");
-   const recovery=rest.length?rest.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?offChoices.slice(1).map(parseOpt).filter(Boolean):[],choice_label:x.name+" · "+x.grams+" "+x.unit})):primary.map(x=>({...x,source_name:groupText,alternatives:[]}));
+   const trainOptions=splitChoices(groupText).map(splitItems).filter(x=>x.length);
+   if(!trainOptions.length)return null;
+   const offOptions=offText?splitChoices(offText).map(splitItems).filter(x=>x.length):trainOptions.map(x=>x.map(y=>({...y})));
+   const primary=trainOptions[0],alternatives=trainOptions.slice(1).flat();
+   const training=primary.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+   const recoveryPrimary=offOptions[0]||primary,recoveryAlternatives=offOptions.slice(1).flat();
+   const recovery=recoveryPrimary.map((x,i)=>({...x,source_name:groupText,alternatives:i===0?recoveryAlternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
    return {training,recovery};
   };
   const addLine=(meal,line)=>{
    const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim();if(!clean)return false;
-   const m=clean.match(/^(.*?)\s*\(([^)]*(?:d[ií]as?\s*off|sin este)[^)]*)\)\s*$/i);
+   if(/^(?:AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(clean)||excludedLine(clean)){excluded++;return false;}
+   const m=clean.match(/^(.*?)\s*\(([^)]*d[ií]as?\s*off[^)]*)\)\s*$/i);
    const base=(m?m[1]:clean).trim(),annotation=m?m[2]:"";
-   const mainChoices=splitChoices(base);
    let offText="";
-   if(/sin este\s*d[ií]as?\s*off/i.test(annotation)){omitted++;offText="";}
-   else if(/d[ií]as?\s*off/i.test(annotation)){
-    offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").replace(/^cambiamos\s+por\s*/i,"").replace(/^porn(?=\d)/i,"").replace(/^por\s*/i,"").trim();
-   }
-   const group=makeRows(mainChoices.join("//"),offText);
-   if(!group)return false;
+   if(/d[ií]as?\s*off/i.test(annotation))offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").replace(/^cambiamos\s+por\s*/i,"").replace(/^por\s*/i,"").trim();
+   const group=makeRows(base,offText);if(!group)return false;
    meal.training.foods.push(...group.training);
-   if(offText)meal.recovery.foods.push(...group.recovery);
-   else if(!/sin este\s*d[ií]as?\s*off/i.test(annotation))meal.recovery.foods.push(...group.training.map(x=>({...x,alternatives:x.alternatives.map(o=>({...o}))})));
+   if(/sin este\s*d[ií]as?\s*off/i.test(annotation))omitted++;else meal.recovery.foods.push(...group.recovery);
    detected++;return true;
   };
   if(hasMealColumn){
@@ -740,7 +738,7 @@ async function parseDietPdf(){
   const calc=arr=>arr.reduce((a,m)=>{m.foods.forEach(x=>{let q=(+x.grams||0)/100;a.k+=(+x.kcal_100||0)*q;a.p+=(+x.prot_100||0)*q;a.c+=(+x.hc_100||0)*q;a.g+=(+x.grasa_100||0)*q});return a},{k:0,p:0,c:0,g:0});
   const unmatched=[...meals.training,...meals.recovery].flatMap(m=>m.foods).filter(x=>!x.food_id).length;
   if(unmatched)warnings.push(unmatched+" alimentos necesitan relacionarse con la biblioteca antes de publicar.");
-  if(omitted)warnings.push(omitted+" alimento(s) marcados «sin este días OFF» se han omitido en descanso.");
+  if(omitted)warnings.push(omitted+" alimento(s) marcados «sin este días OFF» se han omitido en descanso.");\n  if(excluded)warnings.push(excluded+" líneas de ayuno, vegetales o gelatinas 0% se han excluido.");
   if(notes.length)warnings.push(notes.length+" indicaciones de ayuno, entrenamiento, suplementación y observaciones se han conservado.");
   const t=calc(meals.training),r=calc(meals.recovery);
   dietImport={fileName:file.name,client_id:document.querySelector("#pdfClient")?.value||null,name:file.name.replace(/\.pdf$/i,""),goal:"",notes:notes.join("\n\n"),meals:meals.training,recoveryMeals:meals.recovery,activeSet:"training",targetsTraining:{kcal:Math.round(t.k),protein:Math.round(t.p),carbs:Math.round(t.c),fat:Math.round(t.g)},targetsRecovery:{kcal:Math.round(r.k),protein:Math.round(r.p),carbs:Math.round(r.c),fat:Math.round(r.g)},warnings};
