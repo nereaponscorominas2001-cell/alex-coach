@@ -376,7 +376,7 @@ async c_dieta(){
    return recipe;
   }catch(e){console.warn("No se pudo buscar una receta:",e);return null}
  }
- const currentRecipe=meals.length?await findDietRecipe(meals[dietProgress.index]):null;
+ const currentRecipe=meals.length?await findDietRecipe({...meals[dietProgress.index],foods:(meals[dietProgress.index].foods||[]).map((food,fi)=>effectiveFood(food,dietProgress.index,fi))}):null;
  return `<h1>Mi <em>alimentación</em></h1>
  <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><span class="tag">PLAN ACTIVO · V${p.version||1}</span><h2 style="margin:12px 0 3px">${esc(p.nombre)}</h2><p class="muted" style="margin:0">Tu guía de comidas y cantidades para el día</p></div><div style="font-size:30px">🥗</div></div>
