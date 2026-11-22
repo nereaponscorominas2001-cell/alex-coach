@@ -659,7 +659,7 @@ async function parseDietPdf(){
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
    }
    if(!amount||!name)return null;
-   const aliases={"aove":"aceite de oliva","proteína":"proteina","cereales mix mercadona 0%":"cereales mix","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz","pescado azúl":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati","pasta de cualquier tipo":"pasta","burgers ternera o potro":"burger ternera","ternera picada para las fajitas":"ternera picada","tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo"};
+   const aliases={"aove":"aceite de oliva","proteína":"whey protein","proteina":"whey protein","whey":"whey protein","cereales mix mercadona 0%":"cereales mix hacendado 0%","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz","pescado azúl":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati","pasta de cualquier tipo":"pasta","burgers ternera o potro":"burger ternera","ternera picada para las fajitas":"ternera picada 99% carne (cruda)","carne roja":"ternera picada 99% carne (cruda)","tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo (cruda)"};
    const lookup=aliases[name.toLowerCase()]||name;
    const food=matchDietFood(lookup);
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
