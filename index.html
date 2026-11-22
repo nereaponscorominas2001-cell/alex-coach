@@ -701,7 +701,7 @@ async function parseDietPdf(){
     let last=carry,firstMarker=markers[0]?.y??Infinity;
     for(const r of rows){
      let mealNo;
-     if(r.y>firstMarker&&carry&&pageNo>1)mealNo=carry;
+     if(r.y>firstMarker+120&&carry&&pageNo>1)mealNo=carry;
      else if(markers.length){const nearest=markers.reduce((best,m)=>Math.abs(m.y-r.y)<Math.abs(best.y-r.y)?m:best,markers[0]);mealNo=nearest.meal;}
      else mealNo=carry;
      if(/SUPLEMENTACI[ÓO]N|OBSERVACIONES|AYUNO|ENTRENAMIENTO|NOTA\s*:/i.test(r.text+" "+r.section))continue;
