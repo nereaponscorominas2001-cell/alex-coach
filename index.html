@@ -646,14 +646,14 @@ async function parseDietPdf(){
   }
   const meals={training:[],recovery:[]},notes=[],warnings=[];let detected=0,omitted=0;
   const parseOpt=raw=>{
-   let z=String(raw||"").replace(/^[\\s\\-–—•]+/,"").trim();
-   const egg=z.match(/^(\\d+(?:[.,]\\d+)?)\\s+huevo(?:s)?\\s*(.*)$/i);
+   let z=String(raw||"").replace(/^[\s\-–—•]+/,"").trim();
+   const egg=z.match(/^(\d+(?:[.,]\d+)?)\s+huevo(?:s)?\s*(.*)$/i);
    let amount,unit,name;
    if(egg){amount=Number(egg[1].replace(",","."))*50;unit="g";name=("huevo "+(egg[2]||"")).trim();}
    else{
-    const m=z.match(/^(\\d+(?:[.,]\\d+)?)\\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\\s*(.*)$/i);
+    const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
     if(!m)return null;
-    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\\s:,-]+/,"").trim();
+    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").trim();
     if(unit==="ud"||unit==="uds"||unit.startsWith("unidad")){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||1;unit="g";}
     else if(unit==="lata"||unit==="latas"){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||52;unit="g";}
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
@@ -664,8 +664,8 @@ async function parseDietPdf(){
    const food=matchDietFood(lookup);
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
   };
-  const splitItems=s=>String(s||"").split(/\\s*\\+\\s*(?=\\d+(?:[.,]\\d+)?\\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\\b)/i).map(parseOpt).filter(Boolean);
-  const splitChoices=s=>String(s||"").split(/\\s*\\/\\/\\s*/).flatMap(part=>part.split(/\\s+o\\s+(?=\\d+(?:[.,]\\d+)?\\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\\b)/i)).map(x=>x.trim()).filter(Boolean);
+  const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
+  const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).flatMap(part=>part.split(/\s+o\s+(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i)).map(x=>x.trim()).filter(Boolean);
   const makeRows=(groupText,offText)=>{
    const trainChoices=splitChoices(groupText),offChoices=offText?splitChoices(offText):trainChoices;
    const primary=splitItems(trainChoices[0]||"");
@@ -676,20 +676,20 @@ async function parseDietPdf(){
    return {training,recovery};
   };
   const addLine=(meal,line)=>{
-   const clean=String(line||"").replace(/^[\\s\\-–—•]+/,"").trim();if(!clean)return false;
-   const m=clean.match(/^(.*?)\\s*\\(([^)]*(?:d[ií]as?\\s*off|sin este)[^)]*)\\)\\s*$/i);
+   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim();if(!clean)return false;
+   const m=clean.match(/^(.*?)\s*\(([^)]*(?:d[ií]as?\s*off|sin este)[^)]*)\)\s*$/i);
    const base=(m?m[1]:clean).trim(),annotation=m?m[2]:"";
    const mainChoices=splitChoices(base);
    let offText="";
-   if(/sin este\\s*d[ií]as?\\s*off/i.test(annotation)){omitted++;offText="";}
-   else if(/d[ií]as?\\s*off/i.test(annotation)){
-    offText=annotation.replace(/^.*?d[ií]as?\\s*off\\s*/i,"").replace(/^cambiamos\\s+por\\s*/i,"").replace(/^por\\s*/i,"").trim();
+   if(/sin este\s*d[ií]as?\s*off/i.test(annotation)){omitted++;offText="";}
+   else if(/d[ií]as?\s*off/i.test(annotation)){
+    offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").replace(/^cambiamos\s+por\s*/i,"").replace(/^por\s*/i,"").trim();
    }
    const group=makeRows(mainChoices.join("//"),offText);
    if(!group)return false;
    meal.training.foods.push(...group.training);
    if(offText)meal.recovery.foods.push(...group.recovery);
-   else if(!/sin este\\s*d[ií]as?\\s*off/i.test(annotation))meal.recovery.foods.push(...group.training.map(x=>({...x,alternatives:x.alternatives.map(o=>({...o}))})));
+   else if(!/sin este\s*d[ií]as?\s*off/i.test(annotation))meal.recovery.foods.push(...group.training.map(x=>({...x,alternatives:x.alternatives.map(o=>({...o}))})));
    detected++;return true;
   };
   if(hasMealColumn){
@@ -704,7 +704,7 @@ async function parseDietPdf(){
      if(r.y>firstMarker&&carry&&pageNo>1)mealNo=carry;
      else if(markers.length){const nearest=markers.reduce((best,m)=>Math.abs(m.y-r.y)<Math.abs(best.y-r.y)?m:best,markers[0]);mealNo=nearest.meal;}
      else mealNo=carry;
-     if(/SUPLEMENTACI[ÓO]N|OBSERVACIONES|AYUNO|ENTRENAMIENTO|NOTA\\s*:/i.test(r.text+" "+r.section))continue;
+     if(/SUPLEMENTACI[ÓO]N|OBSERVACIONES|AYUNO|ENTRENAMIENTO|NOTA\s*:/i.test(r.text+" "+r.section))continue;
      if(!byMeal.has(mealNo))byMeal.set(mealNo,[]);
      byMeal.get(mealNo).push(r.text);
     }
@@ -714,10 +714,10 @@ async function parseDietPdf(){
     const idx=mealNo-1;meals.training[idx]??={name:"Comida "+mealNo,foods:[]};meals.recovery[idx]??={name:"Comida "+mealNo,foods:[]};
     let logical=[];
     for(const row of rows){
-     const t=row.replace(/\\s+/g," ").trim();if(!t)continue;
+     const t=row.replace(/\s+/g," ").trim();if(!t)continue;
      if(/^[-–—•]/.test(t)){if(logical.length)addLine({training:meals.training[idx],recovery:meals.recovery[idx]},logical.join(" "));logical=[t];}
      else if(logical.length)logical.push(t);
-     else if(/\\d+\\s*(?:g|gr|ml|l|ud|huevo)/i.test(t))logical=[t];
+     else if(/\d+\s*(?:g|gr|ml|l|ud|huevo)/i.test(t))logical=[t];
      else notes.push(t);
     }
     if(logical.length)addLine({training:meals.training[idx],recovery:meals.recovery[idx]},logical.join(" "));
@@ -726,8 +726,8 @@ async function parseDietPdf(){
   }else{
    let currentMeal=null,logical=[];
    for(const r of pageRows){
-    let line=r.text.replace(/\\s+/g," ").trim();if(!line)continue;
-    const h=line.match(/\\bCOMIDA\\s*([1-9])\\b/i);
+    let line=r.text.replace(/\s+/g," ").trim();if(!line)continue;
+    const h=line.match(/\bCOMIDA\s*([1-9])\b/i);
     if(h){if(logical.length&&currentMeal)addLine(currentMeal,logical.join(" "));logical=[];const idx=Number(h[1])-1;currentMeal={training:meals.training[idx]||{name:"Comida "+h[1],foods:[]},recovery:meals.recovery[idx]||{name:"Comida "+h[1],foods:[]}};meals.training[idx]=currentMeal.training;meals.recovery[idx]=currentMeal.recovery;line=line.replace(h[0]," ").trim();if(!line)continue}
     if(/^[-–—•]/.test(line)){if(logical.length&&currentMeal)addLine(currentMeal,logical.join(" "));logical=[line];}
     else if(logical.length)logical.push(line);
