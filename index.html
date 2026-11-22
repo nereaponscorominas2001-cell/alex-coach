@@ -201,7 +201,7 @@ async function draw(){const run=++drawSeq,nav=$("#nav"),app=$("#app");$("#out").
  const isAdmin=me.role=="admin";
  if(!isAdmin&&(!me.nombre||!me.edad||!me.altura_cm||!me.peso_inicial||!me.telefono)){nav.innerHTML="";app.innerHTML=profileOnboardingV();return}
  const T=isAdmin?[["clientes","Clientes"],["chats","Chats"],["dietas_admin","Dietas"],["entrenos_admin","Entrenamientos"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]]:CT;
- if(isAdmin&&!T.some(([k])=>k===tab))tab="clientes";
+ if(isAdmin&&tab!=="planes"&&!T.some(([k])=>k===tab))tab="clientes";
  nav.innerHTML=T.map(([k,l])=>{const active=tab===k||(tab==="planes"&&((k==="dietas_admin"&&adminPlansTab==="dieta")||(k==="entrenos_admin"&&adminPlansTab==="entreno")));const action=k==="dietas_admin"?"tab='planes';adminPlansTab='dieta'":k==="entrenos_admin"?"tab='planes';adminPlansTab='entreno'":"tab='"+k+"'";return '<button class="'+(active?"on":"")+'" onclick="'+action+';sel=null;draw()">'+l+'</button>';}).join("");
  app.innerHTML='<p class="muted">Cargando…</p>';
  try{const view=isAdmin&&tab.startsWith("mi_")?"c_"+tab.slice(3):(isAdmin?"a_":"c_")+tab;const html=await V[view]();if(run===drawSeq)app.innerHTML=html}catch(e){if(run!==drawSeq)return;console.error("Error al cargar la vista:",e);app.innerHTML='<div class="card"><h3>No se ha podido cargar esta sección</h3><p class="muted">'+esc(e?.message||"Error temporal de conexión")+'</p><button class="btn" onclick="draw()">Volver a intentarlo</button></div>'}}
