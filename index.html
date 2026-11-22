@@ -664,7 +664,7 @@ async function parseDietPdf(){
     if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:"",section:left});if(right)rows.push({page:p,y,meal:null,text:right,section:""});}
     else if(right){
      // En este PDF, la cantidad puede quedar en la columna izquierda y el alimento en la derecha.
-     const leftHasAmount=/\d/.test(left)&&/\d\s*(?:g|gr|gramos|ml|cl|l|ud|uds|huevo|lata)/i.test(left);
+     const leftHasAmount=/\d/.test(left)&&/\d\s*(?:g|gr|gramos|mll|ml|cl|l|ud|uds|huevo|lata)/i.test(left);
      const joined=leftHasAmount?(left+" "+right):right;
      rows.push({page:p,y,meal:null,text:joined,section:left});
     }
