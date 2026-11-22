@@ -355,23 +355,29 @@ async c_dieta(){
  const pct=(v,target)=>target?Math.min(100,Math.round(v/target*100)):0;
  const bar=(label,v,target,unit)=>'<div class="diet-day-progress"><div style="display:flex;justify-content:space-between;gap:8px"><span class="diet-label">'+label+'</span><b>'+Math.round(v)+' / '+(target||'—')+' '+unit+'</b></div><div class="diet-progress-track"><div class="diet-progress-fill" style="width:'+pct(v,target)+'%"></div></div></div>';
  async function findDietRecipe(meal){
-  const norm=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-  const map=[["pechuga de pollo","chicken_breast"],["pollo","chicken"],["pavo","turkey"],["ternera","beef"],["cerdo","pork"],["salmon","salmon"],["atun","tuna"],["merluza","hake"],["bacalao","cod"],["gambas","prawns"],["langostinos","prawns"],["huevo","egg"],["claras","egg"],["arroz","rice"],["pasta","pasta"],["patata","potato"],["boniato","sweet_potato"],["avena","oats"],["garbanzos","chickpeas"],["lentejas","lentils"],["quinoa","quinoa"],["pan","bread"],["bagel","bread"],["tomate","tomato"],["espinacas","spinach"],["brocoli","broccoli"],["champiñon","mushrooms"],["aguacate","avocado"],["calabacin","courgette"],["zanahoria","carrot"],["queso","cheese"],["yogur","yogurt"],["platano","banana"],["manzana","apple"],["fresa","strawberry"],["frambuesa","raspberry"]];
-  const foods=(meal.foods||[]).map(x=>norm(x.name));
-  const mapped=[...new Set(foods.flatMap(n=>{const hit=map.find(([es])=>n.includes(norm(es)));return hit?[hit[1]]:[]}))];
+  const norm=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^a-z0-9 ]/g," ").replace(/\\s+/g," ").trim();
+  const map=[["pechuga de pollo","chicken"],["pollo","chicken"],["pavo","turkey"],["ternera","beef"],["vacuno","beef"],["cerdo","pork"],["salmon","salmon"],["atun","tuna"],["merluza","hake"],["bacalao","cod"],["gambas","prawns"],["langostinos","prawns"],["huevo","egg"],["claras","egg"],["arroz","rice"],["pasta","pasta"],["patata","potato"],["boniato","sweet potato"],["batata","sweet potato"],["avena","oats"],["garbanzos","chickpeas"],["lentejas","lentils"],["quinoa","quinoa"],["bagel","bread"],["pan","bread"],["tomate","tomato"],["espinacas","spinach"],["brocoli","broccoli"],["champiñon","mushrooms"],["champi","mushrooms"],["aguacate","avocado"],["calabacin","courgette"],["zanahoria","carrot"],["queso","cheese"],["yogur","yogurt"],["platano","banana"],["manzana","apple"],["fresa","strawberry"],["frambuesa","raspberry"]];
+  const rawFoods=(meal.foods||[]).map(x=>String(x.name||x.nombre||"").trim()).filter(Boolean);
+  const mapped=[...new Set(rawFoods.flatMap(name=>{const n=norm(name);const found=map.filter(([es])=>n.includes(norm(es)));return found.length?[found.sort((a,b)=>norm(b[0]).length-norm(a[0]).length)[0][1]]:[]}))];
   if(!mapped.length)return null;
-  const priority=["chicken_breast","chicken","turkey","beef","pork","salmon","tuna","hake","cod","prawns","egg","chickpeas","lentils","rice","pasta","potato","sweet_potato","oats","quinoa","bread"];
-  const main=priority.find(x=>mapped.includes(x))||mapped[0],cacheKey="diet-recipe-v1:"+[...mapped].sort().join(",");
+  const priority=["chicken","turkey","beef","pork","salmon","tuna","hake","cod","prawns","egg","chickpeas","lentils","rice","pasta","potato","sweet potato","oats","quinoa","bread"];
+  const main=priority.find(x=>mapped.includes(x))||mapped[0],cacheKey="diet-recipe-v2:"+[...mapped].sort().join(",");
   try{const cached=sessionStorage.getItem(cacheKey);if(cached){const v=JSON.parse(cached);if(v?.at>Date.now()-86400000)return v.recipe}}catch(e){}
   try{
    const response=await fetch("https://www.themealdb.com/api/json/v1/1/filter.php?i="+encodeURIComponent(main));
    if(!response.ok)throw Error("Recipe search unavailable");
    const list=(await response.json()).meals||[];if(!list.length)return null;
-   const details=await Promise.all(list.slice(0,7).map(async item=>{try{const r=await fetch("https://www.themealdb.com/api/json/v1/1/lookup.php?i="+encodeURIComponent(item.idMeal));return (await r.json()).meals?.[0]||null}catch(e){return null}}));
-   const scored=details.filter(Boolean).map(item=>{const ingredients=Array.from({length:20},(_,i)=>norm(item["strIngredient"+(i+1)])).filter(Boolean);const matched=mapped.filter(key=>ingredients.some(v=>v.includes(key.replace(/_/g," "))||key.replace(/_/g," ").includes(v)));return{item,score:matched.length,matched}}).sort((a,b)=>b.score-a.score);
-   const best=scored[0];if(!best)return null;
-   const item=best.item,ingredients=Array.from({length:20},(_,i)=>item["strIngredient"+(i+1)]).filter(x=>x?.trim());
-   const recipe={title:item.strMeal,img:item.strMealThumb,source:item.strSource||("https://www.themealdb.com/meal.php?c="+item.idMeal),steps:String(item.strInstructions||"Consulta la preparación completa en la receta original.").replace(/\s+/g," ").slice(0,520),ingredients:ingredients.slice(0,8).join(", ")};
+   const details=await Promise.all(list.slice(0,18).map(async item=>{try{const r=await fetch("https://www.themealdb.com/api/json/v1/1/lookup.php?i="+encodeURIComponent(item.idMeal));return (await r.json()).meals?.[0]||null}catch(e){return null}}));
+   const scored=details.filter(Boolean).map(item=>{
+    const ingredientNames=Array.from({length:20},(_,i)=>String(item["strIngredient"+(i+1)]||"").trim()).filter(Boolean);
+    const recipeNorm=ingredientNames.map(norm);
+    const matched=mapped.filter(key=>recipeNorm.some(v=>v===norm(key)||v.includes(norm(key))||norm(key).includes(v)));
+    return{item,ingredientNames,matched,score:matched.length};
+   }).sort((a,b)=>b.score-a.score);
+   const best=scored.find(x=>x.score>=Math.min(2,mapped.length));
+   if(!best)return null;
+   const item=best.item;
+   const recipe={title:item.strMeal,img:item.strMealThumb,source:item.strSource||("https://www.themealdb.com/meal.php?c="+item.idMeal),steps:String(item.strInstructions||"Consulta la preparación completa en la receta original.").replace(/\\s+/g," ").slice(0,520),ingredients:best.ingredientNames.join(", "),matched:best.matched};
    try{sessionStorage.setItem(cacheKey,JSON.stringify({at:Date.now(),recipe}))}catch(e){}
    return recipe;
   }catch(e){console.warn("No se pudo buscar una receta:",e);return null}
