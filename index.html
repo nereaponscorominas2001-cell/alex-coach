@@ -639,7 +639,7 @@ async function parseDietPdf(){
     const left=items.filter(x=>x.x<190).map(x=>x.s).join(" ").replace(/\s+/g," ").trim();
     const right=items.filter(x=>x.x>=190).map(x=>x.s).join(" ").replace(/\s+/g," ").trim();
     const marker=left.match(/\bCOMIDA\s*([1-9])\b/i);
-    if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:right,section:left});}
+    if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:"",section:left});if(right)rows.push({page:p,y,meal:null,text:right,section:""});}
     else if(right)rows.push({page:p,y,meal:null,text:right,section:left});
    }
    pageRows.push(...rows);
