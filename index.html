@@ -665,7 +665,7 @@ async function parseDietPdf(){
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
   };
   const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
-  const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).flatMap(part=>part.split(/\s+o\s+(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i)).map(x=>x.trim()).filter(Boolean);
+  const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).flatMap(part=>{const pieces=part.split(/\s+o\s+/i);if(pieces.length<2)return [part.trim()];const m=pieces[0].trim().match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\s*(.*)$/i);return pieces.map((x,i)=>i===0?x.trim():(/^\d/.test(x.trim())?x.trim():(m?m[1]+m[2]+" "+x.trim():x.trim())))}).map(x=>x.trim()).filter(Boolean);
   const makeRows=(groupText,offText)=>{
    const trainChoices=splitChoices(groupText),offChoices=offText?splitChoices(offText):trainChoices;
    const primary=splitItems(trainChoices[0]||"");
@@ -683,7 +683,7 @@ async function parseDietPdf(){
    let offText="";
    if(/sin este\s*d[ií]as?\s*off/i.test(annotation)){omitted++;offText="";}
    else if(/d[ií]as?\s*off/i.test(annotation)){
-    offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").replace(/^cambiamos\s+por\s*/i,"").replace(/^por\s*/i,"").trim();
+    offText=annotation.replace(/^.*?d[ií]as?\s*off\s*/i,"").replace(/^cambiamos\s+por\s*/i,"").replace(/^porn(?=\d)/i,"").replace(/^por\s*/i,"").trim();
    }
    const group=makeRows(mainChoices.join("//"),offText);
    if(!group)return false;
