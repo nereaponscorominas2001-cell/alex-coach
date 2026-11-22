@@ -610,12 +610,34 @@ async function dietPdfImporterView(){
  html+='<button class="btn ghost" onclick="addImportedMeal()">+ Añadir comida</button><div class="card"><h3>Resumen nutricional calculado</h3><p class="muted">Cálculo con los valores por 100 g de tu biblioteca.</p><div class="pdf-macro-grid"><div><small>Kcal</small><b>'+Math.round(totals.k)+'</b></div><div><small>Proteínas</small><b>'+totals.p.toFixed(1)+' g</b></div><div><small>Hidratos</small><b>'+totals.c.toFixed(1)+' g</b></div><div><small>Grasas</small><b>'+totals.g.toFixed(1)+' g</b></div></div><h3 style="margin-top:18px">Objetivos diarios</h3><div class="row"><label>Kcal<input id="pdfTargetK" type="number" value="'+(targets.kcal??Math.round(totals.k))+'"></label><label>Proteína (g)<input id="pdfTargetP" type="number" value="'+(targets.protein??Math.round(totals.p))+'"></label><label>Hidratos (g)<input id="pdfTargetC" type="number" value="'+(targets.carbs??Math.round(totals.c))+'"></label><label>Grasas (g)<input id="pdfTargetG" type="number" value="'+(targets.fat??Math.round(totals.g))+'"></label></div></div><div class="card"><h3>Guardar dieta</h3><div class="row"><label>Cliente<select id="pdfClient" onchange="dietImport.client_id=this.value"><option value="">Selecciona cliente…</option>'+(clients||[]).map(x=>'<option value="'+x.id+'" '+(x.id===d.client_id?'selected':'')+'>'+esc([x.nombre,x.apellidos].filter(Boolean).join(" ")||x.email)+'</option>').join("")+'</select></label><label>Nombre de la dieta<input id="pdfDietName" value="'+esc(d.name||"Plan nutricional")+'"></label></div><label>Objetivo<input id="pdfGoal" value="'+esc(d.goal||"")+'" placeholder="Ej. pérdida de grasa, ganancia muscular…"></label><label>Notas para el cliente<textarea id="pdfNotes" rows="3">'+esc(d.notes||"")+'</textarea></label><button class="btn" style="width:100%" onclick="saveImportedDiet()">Guardar y publicar dieta</button><p class="muted" style="font-size:12px">Se creará una nueva versión y la dieta anterior pasará al histórico.</p></div>';
  return html;
 }
-function normDiet(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
-function matchDietFood(line){
- const text=normDiet(line);let best=null,score=0;
- for(const f of foodsCache){const name=normDiet(f.nombre);if(!name)continue;if(text.includes(name)){let s=1+name.length/1000;if(s>score){best=f;score=s}continue}const words=name.split(" ").filter(x=>x.length>2);const hits=words.filter(x=>text.includes(x)).length;const s=words.length?hits/words.length:0;if(hits>=2&&s>=.75&&s>score){best=f;score=s}}
+function normDiet(v){return String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
+const dietFoodAliases={
+ "aove":"aceite de oliva","aceite oliva":"aceite de oliva","proteina":"whey protein","whey":"whey protein",
+ "claras":"clara de huevo","clara":"clara de huevo","avena":"avena en copos","pan":"pan blanco",
+ "cereales mix mercadona 0":"cereales mix hacendado 0","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz",
+ "pescado azul":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati",
+ "pasta de cualquier tipo":"pasta de trigo","burgers ternera o potro":"burger de ternera",
+ "ternera picada para las fajitas":"ternera picada 99 carne cruda","carne roja":"ternera picada 99 carne cruda",
+ "tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo cruda",
+ "atun al natural":"atun al natural","crema cacahuete":"crema de cacahuete","crema de arroz":"crema de arroz"
+};
+function resolveDietFood(line){
+ const raw=normDiet(line),alias=dietFoodAliases[raw]||raw;
+ const exact=foodsCache.find(f=>normDiet(f.nombre)===alias);
+ if(exact)return exact;
+ const q=alias.split(" ").filter(x=>x.length>2);
+ if(!q.length)return null;
+ let best=null,bestScore=0;
+ for(const f of foodsCache){
+  const tokens=normDiet(f.nombre).split(" ").filter(x=>x.length>2);
+  const hits=q.filter(x=>tokens.includes(x)).length,coverage=hits/q.length;
+  if(!hits||coverage<0.8)continue;
+  const precision=hits/Math.max(tokens.length,1),score=coverage*0.75+precision*0.25;
+  if(score>bestScore){best=f;bestScore=score}
+ }
  return best;
 }
+function matchDietFood(line){return resolveDietFood(line)}
 async function parseDietPdf(){
  const file=dietPdfFile||document.querySelector("#dietPdfFile")?.files?.[0];if(!file)return alert("Selecciona primero un PDF.");
  if(file.type!=="application/pdf"&&!file.name.toLowerCase().endsWith(".pdf"))return alert("El archivo debe ser un PDF.");
@@ -659,9 +681,7 @@ async function parseDietPdf(){
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
    }
    if(!amount||!name)return null;
-   const aliases={"aove":"aceite de oliva","proteina":"whey protein","whey":"whey protein","cereales mix mercadona 0%":"cereales mix hacendado 0%","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz","pescado azul":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati","pasta de cualquier tipo":"pasta","burgers ternera o potro":"burger ternera","ternera picada para las fajitas":"ternera picada 99% carne (cruda)","carne roja":"ternera picada 99% carne (cruda)","tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo (cruda)"};
-   const lookup=aliases[normDiet(name)]||name;
-   const food=foodsCache.find(f=>normDiet(f.nombre)===normDiet(lookup))||matchDietFood(lookup);
+   const food=resolveDietFood(name);
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
   };
   const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
