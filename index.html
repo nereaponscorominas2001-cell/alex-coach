@@ -610,7 +610,7 @@ async function dietPdfImporterView(){
  html+='<button class="btn ghost" onclick="addImportedMeal()">+ Añadir comida</button><div class="card"><h3>Resumen nutricional calculado</h3><p class="muted">Cálculo con los valores por 100 g de tu biblioteca.</p><div class="pdf-macro-grid"><div><small>Kcal</small><b>'+Math.round(totals.k)+'</b></div><div><small>Proteínas</small><b>'+totals.p.toFixed(1)+' g</b></div><div><small>Hidratos</small><b>'+totals.c.toFixed(1)+' g</b></div><div><small>Grasas</small><b>'+totals.g.toFixed(1)+' g</b></div></div><h3 style="margin-top:18px">Objetivos diarios</h3><div class="row"><label>Kcal<input id="pdfTargetK" type="number" value="'+(targets.kcal??Math.round(totals.k))+'"></label><label>Proteína (g)<input id="pdfTargetP" type="number" value="'+(targets.protein??Math.round(totals.p))+'"></label><label>Hidratos (g)<input id="pdfTargetC" type="number" value="'+(targets.carbs??Math.round(totals.c))+'"></label><label>Grasas (g)<input id="pdfTargetG" type="number" value="'+(targets.fat??Math.round(totals.g))+'"></label></div></div><div class="card"><h3>Guardar dieta</h3><div class="row"><label>Cliente<select id="pdfClient" onchange="dietImport.client_id=this.value"><option value="">Selecciona cliente…</option>'+(clients||[]).map(x=>'<option value="'+x.id+'" '+(x.id===d.client_id?'selected':'')+'>'+esc([x.nombre,x.apellidos].filter(Boolean).join(" ")||x.email)+'</option>').join("")+'</select></label><label>Nombre de la dieta<input id="pdfDietName" value="'+esc(d.name||"Plan nutricional")+'"></label></div><label>Objetivo<input id="pdfGoal" value="'+esc(d.goal||"")+'" placeholder="Ej. pérdida de grasa, ganancia muscular…"></label><label>Notas para el cliente<textarea id="pdfNotes" rows="3">'+esc(d.notes||"")+'</textarea></label><button class="btn" style="width:100%" onclick="saveImportedDiet()">Guardar y publicar dieta</button><p class="muted" style="font-size:12px">Se creará una nueva versión y la dieta anterior pasará al histórico.</p></div>';
  return html;
 }
-function normDiet(v){return String(v||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
+function normDiet(v){return String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
 const dietFoodAliases={
  "aove":"aceite de oliva","aceite oliva":"aceite de oliva","proteina":"whey protein","whey":"whey protein",
  "claras":"clara de huevo","clara":"clara de huevo","avena":"avena en copos","pan":"pan blanco",
@@ -664,7 +664,7 @@ async function parseDietPdf(){
     if(marker){hasMealColumn=true;rows.push({page:p,y,meal:Number(marker[1]),text:"",section:left});if(right)rows.push({page:p,y,meal:null,text:right,section:""});}
     else if(right){
      // En este PDF, la cantidad puede quedar en la columna izquierda y el alimento en la derecha.
-     const leftHasAmount=/\\d/.test(left)&&/\\d\\s*(?:g|gr|gramos|ml|cl|l|ud|uds|huevo|lata)/i.test(left);
+     const leftHasAmount=/\d/.test(left)&&/\d\s*(?:g|gr|gramos|ml|cl|l|ud|uds|huevo|lata)/i.test(left);
      const joined=leftHasAmount?(left+" "+right):right;
      rows.push({page:p,y,meal:null,text:joined,section:left});
     }
@@ -680,7 +680,7 @@ async function parseDietPdf(){
    else{
     const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
     if(!m)return null;
-    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/^r\\s+/i,"").replace(/[),;]+$/g,"").trim();
+    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/^r\s+/i,"").replace(/[),;]+$/g,"").trim();
     if(unit==="ud"||unit==="uds"||unit.startsWith("unidad")){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||1;unit="g";}
     else if(unit==="lata"||unit==="latas"){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||52;unit="g";}
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
