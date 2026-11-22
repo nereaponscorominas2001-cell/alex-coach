@@ -177,6 +177,19 @@ let me=null,tab="inicio",sel=null,chatSel=null,signupMode=false,dietSet="trainin
 const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["dietas","Dietas y compras"],["semanal","Entrenamiento semanal"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Administrados"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
 const MT=[["mi_inicio","Mi inicio"],["mi_dieta","Mi dieta"],["mi_dietas","Mi dieta y compra"],["mi_entreno","Mi entrenamiento"],["mi_revision","Mi revisión"],["mi_mensajes","Mis mensajes"],["mi_perfil","Mi perfil"]];
 const ok=r=>{if(r.error){alert(r.error.message);return false}return true};
+async function connectGmail(){
+ const button=document.querySelector('button[onclick="connectGmail()"]');
+ if(button){button.disabled=true;button.textContent="Conectando…"}
+ try{
+  const {data,error}=await sb.functions.invoke("gmail-oauth-start",{body:{}});
+  if(error)throw error;
+  if(!data?.url)throw new Error(data?.error||"Google no ha devuelto el enlace de autorización.");
+  window.location.assign(data.url);
+ }catch(e){
+  alert("No se ha podido iniciar la conexión con Gmail: "+(e?.message||"Error desconocido"));
+  if(button){button.disabled=false;button.textContent="Conectar alexvicentcoach@gmail.com con Google"}
+ }
+}
 async function boot(){const run=++bootSeq;try{const{data:{session},error:sessionError}=await sb.auth.getSession();if(run!==bootSeq)return;if(sessionError)throw sessionError;if(inviteMode){me=null;await draw();return}if(!session){me=null;await draw();return}const{data,error}=await sb.from("profiles").select("*").eq("id",session.user.id).single();if(run!==bootSeq)return;if(error)throw error;if(!data)throw Error("No se ha encontrado el perfil de este usuario.");me=data;await draw()}catch(e){if(run!==bootSeq)return;console.error("Error al iniciar sesión:",e);const app=$("#app");if(app)app.innerHTML='<div class="auth card"><h1>No se pudo cargar tu perfil</h1><p>La sesión está iniciada, pero no hemos podido recuperar tus datos. Comprueba tu conexión e inténtalo de nuevo.</p><p class="muted">'+esc(e?.message||"Error temporal")+'</p><button class="btn" onclick="boot()">Reintentar</button></div>'}}
 sb.auth.onAuthStateChange((event)=>{if(event==="PASSWORD_RECOVERY"){recoveryMode=true;inviteMode=false;queueMicrotask(()=>draw());return}if(event==="SIGNED_IN"||event==="SIGNED_OUT"||event==="TOKEN_REFRESHED")queueMicrotask(()=>boot())});
 window.addEventListener("error",e=>{const app=$("#app");if(app)app.innerHTML='<div class="auth card"><h1>No se pudo cargar</h1><p>Ha ocurrido un error al iniciar la plataforma.</p><p class="muted">'+esc(e.message||"Error de JavaScript")+'</p><button class="btn" onclick="boot()">Volver a intentar</button></div>'});
@@ -274,7 +287,7 @@ async c_revision(){
 },
 async c_mensajes(){return`<h1><em>Mensajes</em></h1>`+await msgsV(me.id)},
 async a_inicio(){const[c,r]=await Promise.all([sb.from("profiles").select("id,estado").eq("role","client"),sb.from("reviews").select("id").eq("estado","pendiente")]);
- return`<h1>Resumen <em>general</em></h1><div class="grid"><div class="card"><h3>Clientes</h3><div class="stat">${c.data?.length||0}</div></div><div class="card"><h3>Activos</h3><div class="stat">${(c.data||[]).filter(x=>x.estado=="activo").length}</div></div><div class="card"><h3>Revisiones pendientes</h3><div class="stat">${r.data?.length||0}</div></div></div>`},
+ return`<h1>Resumen <em>general</em></h1><div class="grid"><div class="card"><h3>Clientes</h3><div class="stat">${c.data?.length||0}</div></div><div class="card"><h3>Activos</h3><div class="stat">${(c.data||[]).filter(x=>x.estado=="activo").length}</div></div><div class="card"><h3>Revisiones pendientes</h3><div class="stat">${r.data?.length||0}</div></div></div><div class="card" style="margin-top:18px"><h3>📧 Envío automático de dietas</h3><p class="muted">Conecta el Gmail de empresa para enviar las dietas publicadas en PDF directamente a cada cliente.</p><button class="btn" onclick="connectGmail()">Conectar alexvicentcoach@gmail.com con Google</button><p class="muted" style="font-size:12px;margin-top:10px">Se solicitará permiso únicamente para enviar correos desde Gmail.</p></div>`},
 async a_chats(){
  const [{data:clients,error:ce},{data:messages,error:meErr}]=await Promise.all([
   sb.from("profiles").select("id,nombre,apellidos,email").eq("role","client").order("created_at",{ascending:false}),
