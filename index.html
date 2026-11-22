@@ -313,7 +313,7 @@ async c_dieta(){
  const p=data?.[0];
  if(!p)return '<h1>Mi <em>alimentación</em></h1><div class="card">Tu entrenador todavía no ha publicado una dieta.</div>';
  const d=p.data||{},sets=d.meal_sets||null,activeSet=sets?(dietSet==="recovery"?sets.recovery:sets.training):null,t=activeSet?.targets||d.targets||{},meals=activeSet?.meals||d.meals||[];
- const {data:swapFoods}=await sb.from("foods").select("id,nombre,kcal_100,prot_100,hc_100,grasa_100").order("nombre");dietSwapFoods=swapFoods||[];
+ const {data:swapFoods}=await sb.from("foods").select("id,nombre,kcal_100,prot_100,hc_100,grasa_100").order("nombre");dietSwapFoods=buildDietSwapOptions(swapFoods||[]);
  const swapStorageKey="diet-swaps:"+me.id+":"+p.id+":"+dietSet;let swaps={};try{swaps=JSON.parse(localStorage.getItem(swapStorageKey)||"{}")}catch(e){swaps={}}
  const effectiveFood=(x,mi,fi)=>{const s=swaps[mi+":"+fi];if(!s)return x;const f=dietSwapFoods.find(z=>String(z.id)===String(s.food_id));return f?{...x,...f,name:f.nombre,grams:+s.grams||x.grams}:x};
 
@@ -634,6 +634,31 @@ async function parseDietPdf(){
  }catch(e){console.error("PDF diet import:",e);alert("No se ha podido leer el PDF: "+(e.message||"Error desconocido"))}
 }
 var dietSwapFoods=[];
+function buildDietSwapOptions(rows){
+ const groups=[
+  {id:"group_nuts",nombre:"Frutos secos",members:["Almendras","Anacardos","Avellanas","Nueces","Pistachos"]},
+  {id:"group_nut_butters",nombre:"Cremas de frutos secos",members:["Crema de almendras","Crema de cacahuete"]},
+  {id:"group_oils",nombre:"Aceites",members:["Aceite de coco","Aceite de oliva"]},
+  {id:"group_rice",nombre:"Arroz",members:["Arroz basmati","Arroz blanco","Arroz integral"]},
+  {id:"group_pasta",nombre:"Pasta",members:["Pasta de trigo","Pasta integral"]},
+  {id:"group_potato",nombre:"Patata",members:["Patata","Patata cocida"]},
+  {id:"group_sweet_potato",nombre:"Boniato",members:["Boniato","Boniato asado"]},
+  {id:"group_white_fish",nombre:"Pescado blanco",members:["Bacalao desalado","Bacalao fresco","Dorada","Lubina","Merluza"]},
+  {id:"group_poultry",nombre:"Aves magras",members:["Pechuga de pollo (cruda)","Pechuga de pavo"]},
+  {id:"group_lean_meat",nombre:"Carne magra",members:["Solomillo de cerdo","Ternera magra (cruda)","Ternera picada 99% carne (cruda)"]},
+  {id:"group_shellfish",nombre:"Marisco",members:["Gambas","Langostinos"]},
+  {id:"group_protein_yogurt",nombre:"Yogur alto en proteína 0%",members:["Yogur alto en proteína 0%","Yogur griego natural 0%"]}
+ ];
+ const groupedNames=new Set(),aggregates=[];
+ groups.forEach(g=>{
+  const items=g.members.map(n=>rows.find(f=>f.nombre===n)).filter(Boolean);
+  if(items.length<2)return;
+  items.forEach(f=>groupedNames.add(f.nombre));
+  const avg=key=>items.reduce((sum,f)=>sum+(+f[key]||0),0)/items.length;
+  aggregates.push({id:g.id,nombre:g.nombre,kcal_100:avg("kcal_100"),prot_100:avg("prot_100"),hc_100:avg("hc_100"),grasa_100:avg("grasa_100"),es_grupo:true,miembros:items.map(f=>f.nombre)});
+ });
+ return rows.filter(f=>!groupedNames.has(f.nombre)).concat(aggregates).sort((a,b)=>a.nombre.localeCompare(b.nombre,"es"));
+}
 function dietFoodCategory(f){
  const h=Math.max(0,+f.hc_100||0)*4,p=Math.max(0,+f.prot_100||0)*4,g=Math.max(0,+f.grasa_100||0)*9;
  if(Math.max(h,p,g)<=0)return "H";
