@@ -822,36 +822,36 @@ async function parseTrainingPdf(){
   for(let p=1;p<=pdf.numPages;p++){
    const page=await pdf.getPage(p),content=await page.getTextContent(),rows=new Map();
    for(const item of content.items){if(!item.str||!item.str.trim())continue;const y=Math.round(item.transform[5]/2)*2,a=rows.get(y)||[];a.push({x:item.transform[4],s:item.str.trim()});rows.set(y,a)}
-   for(const [y,a] of rows){a.sort((x,z)=>x.x-z.x);const line=a.map(x=>x.s).join(" ").replace(/\\s+/g," ").trim();if(line)lines.push({page:p,y,text:line})}
+   for(const [y,a] of rows){a.sort((x,z)=>x.x-z.x);const line=a.map(x=>x.s).join(" ").replace(/\s+/g," ").trim();if(line)lines.push({page:p,y,text:line})}
   }
   lines.sort((a,b)=>a.page-b.page||b.y-a.y);
   const days=[],general=[],warnings=[];
-  const clean=s=>String(s||"").replace(/\\s+/g," ").trim().replace(/^\\|+|\\|+$/g,"").trim();
-  const normalizeDay=s=>clean(s).replace(/^D[IÍ]A\\s*\\d+\\s*[|·—:-]?\\s*/i,"").replace(/^D[IÍ]A\\s*/i,"").trim();
-  const isHeading=line=>/^(?:D[IÍ]A\\s*\\d+\\s*[|·—:-]\\s*.+|(?:LUNES|MARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)\\s*[|·—:-]\\s*.+)$/i.test(line);
+  const clean=s=>String(s||"").replace(/\s+/g," ").trim().replace(/^\|+|\|+$/g,"").trim();
+  const normalizeDay=s=>clean(s).replace(/^D[IÍ]A\s*\d+\s*[|·—:-]?\s*/i,"").replace(/^D[IÍ]A\s*/i,"").trim();
+  const isHeading=line=>/^(?:D[IÍ]A\s*\d+\s*[|·—:-]\s*.+|(?:LUNES|MARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)\s*[|·—:-]\s*.+)$/i.test(line);
   const addText=(obj,key,value,sep=" ")=>{if(value)obj[key]=(obj[key]?obj[key]+sep:"")+value};
   const parseExercise=line=>{
-   let raw=clean(line).replace(/^[-•–]\\s*/,"");
+   let raw=clean(line).replace(/^[-•–]\s*/,"");
    const colon=raw.lastIndexOf(":");
    let name=colon>1?clean(raw.slice(0,colon)):raw;
    let prescription=colon>1?clean(raw.slice(colon+1)):"";
    if(!prescription){
-    const leading=raw.match(/^(\\d+)\\s*[x×]\\s*(\\d+(?:\\s*(?:a|[-–])\\s*\\d+)?(?:\\s*min)?)(?:\\s+)(.+)$/i);
+    const leading=raw.match(/^(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|[-–])\s*\d+)?(?:\s*min)?)(?:\s+)(.+)$/i);
     if(leading){name=clean(leading[3]);prescription=clean(leading[1]+"x "+leading[2])}
-    else{const match=raw.match(/^(.*?)(\\d+\\s*[x×]\\s*\\d[\\d\\s.,aA-]*(?:.*)?)$/);if(match){name=clean(match[1]);prescription=clean(match[2])}}
+    else{const match=raw.match(/^(.*?)(\d+\s*[x×]\s*\d[\d\s.,aA-]*(?:.*)?)$/);if(match){name=clean(match[1]);prescription=clean(match[2])}}
    }
    if(!prescription||name.length<3)return null;
-   const setsMatches=[...prescription.matchAll(/(\\d+)\\s*[x×]/gi)];
+   const setsMatches=[...prescription.matchAll(/(\d+)\s*[x×]/gi)];
    if(!setsMatches.length)return null;
    const sets=setsMatches.reduce((n,m)=>n+Number(m[1]||0),0);
    if(!sets)return null;
-   const first=prescription.match(/\\d+\\s*[x×]\\s*(.+)/i);
+   const first=prescription.match(/\d+\s*[x×]\s*(.+)/i);
    let reps=first?clean(first[1]):prescription;
-   reps=reps.replace(/\\s+/g," ").replace(/\\b(a|hasta)\\b/gi,"-").trim();
+   reps=reps.replace(/\s+/g," ").replace(/\b(a|hasta)\b/gi,"-").trim();
    const notes=[];
-   const technique=prescription.match(/(?:\\d+\\s*[x×]\\s*[^/]+\\s*)?(?:TP\\s*\\/\\s*\\d+\\s*[x×][^,;]+BO|TP\\s*\\/[^,;]+BO|\\bTP\\b|\\bBO\\b)/i);
+   const technique=prescription.match(/(?:\d+\s*[x×]\s*[^/]+\s*)?(?:TP\s*\/\s*\d+\s*[x×][^,;]+BO|TP\s*\/[^,;]+BO|\bTP\b|\bBO\b)/i);
    if(technique)notes.push("Método/series especiales: "+clean(prescription));
-   const trailing=prescription.replace(/^\\d+\\s*[x×]\\s*/i,"");
+   const trailing=prescription.replace(/^\d+\s*[x×]\s*/i,"");
    if(/pausa|segundos|estiramiento|RIR|fallo|máximas|máximos|TP|BO/i.test(trailing)&&!technique)notes.push(clean(trailing));
    const cardio=/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name);
    return {name,sets,reps:reps||prescription,rest:90,notes:notes.join(" · "),video_url:"",_cardio:cardio};
@@ -867,26 +867,26 @@ async function parseTrainingPdf(){
     if(!/^(?:image|ejercicio|series|repeticiones|plan semanal|distribuci[oó]n semanal)$/i.test(line))general.push(line);
     continue;
    }
-   if(/^(?:trabajo de zona media|zona media|abdominales?)\\s*:?/i.test(line)){addText(current,"notes",line,"\\n");continue}
-   if(/^prioridades de ejecuci[oó]n|^indicaciones|^notas/i.test(line)){addText(current,"notes",line,"\\n");continue}
-   if(/^ejercicio\\s+series\\s+repeticiones/i.test(line)||/^[-| ]*(?:-----|ejercicio|series|repeticiones)[-| ]*$/i.test(line))continue;
+   if(/^(?:trabajo de zona media|zona media|abdominales?)\s*:?/i.test(line)){addText(current,"notes",line,"\n");continue}
+   if(/^prioridades de ejecuci[oó]n|^indicaciones|^notas/i.test(line)){addText(current,"notes",line,"\n");continue}
+   if(/^ejercicio\s+series\s+repeticiones/i.test(line)||/^[-| ]*(?:-----|ejercicio|series|repeticiones)[-| ]*$/i.test(line))continue;
    if(/^alex vicent|^plan de temporada|^objetivo semanal/i.test(line)){general.push(line);continue}
-   if(/^[-•–]\\s*/.test(line)){addText(current,"notes",line.replace(/^[-•–]\\s*/,""),"\\n");continue}
+   if(/^[-•–]\s*/.test(line)){addText(current,"notes",line.replace(/^[-•–]\s*/,""),"\n");continue}
    const exercise=parseExercise(line);
    if(exercise){
     const { _cardio,...saved }=exercise;current.exercises.push(saved);
-    if(_cardio||/\\b\\d+\\s*(?:min|minutos)\\b/i.test(line))addText(current,"cardio",line," · ");
+    if(_cardio||/\b\d+\s*(?:min|minutos)\b/i.test(line))addText(current,"cardio",line," · ");
     continue;
    }
-   if(/\\b\\d+\\s*(?:min|minutos)\\b/i.test(line)&&/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(line)){addText(current,"cardio",line," · ");continue}
-   addText(current,"notes",line,"\\n");
+   if(/\b\d+\s*(?:min|minutos)\b/i.test(line)&&/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(line)){addText(current,"cardio",line," · ");continue}
+   addText(current,"notes",line,"\n");
   }
   if(!days.length)throw Error("No he detectado sesiones. Se admiten encabezados como «DÍA 1 | EMPUJES A», «DÍA 2 | TIRONES A» o «LUNES | PIERNA».");
   const total=days.reduce((n,d)=>n+d.exercises.length,0);
   if(!total)warnings.push("Se detectaron las sesiones, pero no los ejercicios. Comprueba que el PDF tenga texto seleccionable; los PDF escaneados necesitan OCR.");
   if(days.some(d=>!d.exercises.length))warnings.push("Hay sesiones sin ejercicios reconocidos. Revísalas antes de publicar.");
   if(days.some(d=>d.exercises.some(x=>/TP|BO|RIR|pausa/i.test(x.reps))))warnings.push("Se han conservado las técnicas especiales dentro de la prescripción. Comprueba las series TP/BO y las indicaciones.");
-  trainingImport={fileName:file.name,client_id:document.querySelector("#trainingPdfClient")?.value||null,name:file.name.replace(/\\.pdf$/i,""),goal:"",notes:general.join("\\n"),days,warnings};
+  trainingImport={fileName:file.name,client_id:document.querySelector("#trainingPdfClient")?.value||null,name:file.name.replace(/\.pdf$/i,""),goal:"",notes:general.join("\n"),days,warnings};
   trainingImportMode=true;trainingPdfFile=null;await draw();
  }catch(e){console.error("PDF training import:",e);alert("No se ha podido leer el PDF: "+(e.message||"Error desconocido"))}
 }
@@ -896,7 +896,7 @@ async function saveImportedTraining(){
  if(!d.days.length||!d.days.some(x=>x.exercises.length))return alert("No hay ejercicios detectados. Revisa el PDF antes de publicar.");
  const {data:prev,error}=await sb.from("plans").select("version").eq("client_id",clientId).eq("tipo","entreno").order("version",{ascending:false}).limit(1);if(error)return alert(error.message);
  const version=(prev?.[0]?.version||0)+1,payload={days:d.days.map(day=>({name:day.name,description:day.description||"",notes:day.notes||"",cardio:day.cardio||"",exercises:day.exercises.map(x=>({name:x.name,sets:Number(x.sets)||1,reps:String(x.reps||""),rest:Number(x.rest)||90,notes:x.notes||"",video_url:x.video_url||""}))}))};
- const r=await sb.from("plans").insert({client_id:clientId,tipo:"entreno",nombre,objetivos:goal,observaciones:notes+"\nPDF de origen: "+d.fileName,data:payload,version,activo:true});if(r.error)return alert("No se pudo guardar: "+r.error.message);
+ const r=await sb.from("plans").insert({client_id:clientId,tipo:"entreno",nombre:name,objetivos:goal,observaciones:notes+"\nPDF de origen: "+d.fileName,data:payload,version,activo:true});if(r.error)return alert("No se pudo guardar: "+r.error.message);
  const old=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo","entreno").eq("activo",true).neq("version",version);if(old.error)console.warn(old.error);
  trainingImport=null;trainingImportMode=false;tab="planes";adminPlansTab="entreno";alert("Entrenamiento publicado como versión "+version+".");draw();
 }
