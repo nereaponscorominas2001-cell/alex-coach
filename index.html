@@ -689,7 +689,7 @@ async function parseDietPdf(){
    const food=resolveDietFood(name);
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
   };
-  const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
+  const splitItems=s=>String(s||"").split(/\s*\+\s*(?=\d+(?:[.,]\d+)?\s*(?:g|gr|gramos|mll|ml|cl|l|ud|uds|unidad(?:es)?|huevo(?:s)?|lata(?:s)?)\b)/i).map(parseOpt).filter(Boolean);
   let excluded=0;
   const splitChoices=s=>String(s||"").split(/\s*\/\/\s*/).map(x=>x.trim()).filter(Boolean);
   const excludedLine=s=>/vegetales|verduras|gelatina\s*0\s*%/i.test(String(s||""));
