@@ -355,7 +355,7 @@ async c_dieta(){
  const pct=(v,target)=>target?Math.min(100,Math.round(v/target*100)):0;
  const bar=(label,v,target,unit)=>'<div class="diet-day-progress"><div style="display:flex;justify-content:space-between;gap:8px"><span class="diet-label">'+label+'</span><b>'+Math.round(v)+' / '+(target||'—')+' '+unit+'</b></div><div class="diet-progress-track"><div class="diet-progress-fill" style="width:'+pct(v,target)+'%"></div></div></div>';
  async function findDietRecipe(meal){
-  const norm=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\\u0300-\\u036f]/g,"");
+  const norm=v=>String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   const map=[["pechuga de pollo","chicken_breast"],["pollo","chicken"],["pavo","turkey"],["ternera","beef"],["cerdo","pork"],["salmon","salmon"],["atun","tuna"],["merluza","hake"],["bacalao","cod"],["gambas","prawns"],["langostinos","prawns"],["huevo","egg"],["claras","egg"],["arroz","rice"],["pasta","pasta"],["patata","potato"],["boniato","sweet_potato"],["avena","oats"],["garbanzos","chickpeas"],["lentejas","lentils"],["quinoa","quinoa"],["pan","bread"],["bagel","bread"],["tomate","tomato"],["espinacas","spinach"],["brocoli","broccoli"],["champiñon","mushrooms"],["aguacate","avocado"],["calabacin","courgette"],["zanahoria","carrot"],["queso","cheese"],["yogur","yogurt"],["platano","banana"],["manzana","apple"],["fresa","strawberry"],["frambuesa","raspberry"]];
   const foods=(meal.foods||[]).map(x=>norm(x.name));
   const mapped=[...new Set(foods.flatMap(n=>{const hit=map.find(([es])=>n.includes(norm(es)));return hit?[hit[1]]:[]}))];
@@ -371,7 +371,7 @@ async c_dieta(){
    const scored=details.filter(Boolean).map(item=>{const ingredients=Array.from({length:20},(_,i)=>norm(item["strIngredient"+(i+1)])).filter(Boolean);const matched=mapped.filter(key=>ingredients.some(v=>v.includes(key.replace(/_/g," "))||key.replace(/_/g," ").includes(v)));return{item,score:matched.length,matched}}).sort((a,b)=>b.score-a.score);
    const best=scored[0];if(!best)return null;
    const item=best.item,ingredients=Array.from({length:20},(_,i)=>item["strIngredient"+(i+1)]).filter(x=>x?.trim());
-   const recipe={title:item.strMeal,img:item.strMealThumb,source:item.strSource||("https://www.themealdb.com/meal.php?c="+item.idMeal),steps:String(item.strInstructions||"Consulta la preparación completa en la receta original.").replace(/\\s+/g," ").slice(0,520),ingredients:ingredients.slice(0,8).join(", ")};
+   const recipe={title:item.strMeal,img:item.strMealThumb,source:item.strSource||("https://www.themealdb.com/meal.php?c="+item.idMeal),steps:String(item.strInstructions||"Consulta la preparación completa en la receta original.").replace(/\s+/g," ").slice(0,520),ingredients:ingredients.slice(0,8).join(", ")};
    try{sessionStorage.setItem(cacheKey,JSON.stringify({at:Date.now(),recipe}))}catch(e){}
    return recipe;
   }catch(e){console.warn("No se pudo buscar una receta:",e);return null}
