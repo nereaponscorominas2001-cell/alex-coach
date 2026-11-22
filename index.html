@@ -860,7 +860,7 @@ async function saveImportedDiet(){
  const {data:prev,error}=await sb.from("plans").select("version").eq("client_id",clientId).eq("tipo","dieta").order("version",{ascending:false}).limit(1);if(error)return alert(error.message);
  const version=(prev?.[0]?.version||0)+1;
  const payload={meal_sets:{training:makeSet(d.meals,d.targetsTraining),recovery:makeSet(d.recoveryMeals,d.targetsRecovery)}};
- const r=await sb.from("plans").insert({client_id:clientId,tipo:"dieta",nombre,objetivos:document.querySelector("#pdfGoal").value,observaciones:document.querySelector("#pdfNotes").value,data:payload,version,activo:true});
+ const r=await sb.from("plans").insert({client_id:clientId,tipo:"dieta",nombre:name,objetivos:document.querySelector("#pdfGoal").value,observaciones:document.querySelector("#pdfNotes").value,data:payload,version,activo:true});
  if(r.error)return alert("No se pudo guardar: "+r.error.message);
  const old=await sb.from("plans").update({activo:false}).eq("client_id",clientId).eq("tipo","dieta").eq("activo",true).neq("version",version);if(old.error)console.warn(old.error);
  dietImport=null;dietImportMode=false;tab="planes";alert("Las dos versiones se han publicado: entrenamiento y descanso. Versión "+version+".");draw();
