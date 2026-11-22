@@ -646,7 +646,7 @@ async function parseDietPdf(){
   }
   const meals={training:[],recovery:[]},notes=[],warnings=[];let detected=0,omitted=0;
   const parseOpt=raw=>{
-   let z=String(raw||"").replace(/^[\s\-–—•]+/,"").trim();
+   let z=String(raw||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2");
    const egg=z.match(/^(\d+(?:[.,]\d+)?)\s+huevo(?:s)?\s*(.*)$/i);
    let amount,unit,name;
    if(egg){amount=Number(egg[1].replace(",","."))*50;unit="g";name=("huevo "+(egg[2]||"")).trim();}
@@ -675,13 +675,13 @@ async function parseDietPdf(){
    // Cada // separa opciones excluyentes: importar únicamente la primera.
    // Los alimentos unidos por + sí forman parte de la misma opción y se conservan todos.
    const primary=trainOptions[0];
-   const training=primary.map(x=>({...x,source_name:groupText,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+   const training=primary.map(x=>({...x,source_name:x.source_name,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
    const recoveryPrimary=offOptions[0]||primary;
-   const recovery=recoveryPrimary.map(x=>({...x,source_name:groupText,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
+   const recovery=recoveryPrimary.map(x=>({...x,source_name:x.source_name,alternatives:[],choice_label:x.name+" · "+x.grams+" "+x.unit}));
    return {training,recovery};
   };
   const addLine=(meal,line)=>{
-   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim();if(!clean)return false;
+   const clean=String(line||"").replace(/^[\s\-–—•]+/,"").trim().replace(/\b(\d)\s+(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2$3").replace(/\b(\d)\s+(\d)(?=\s*(?:g|gr|gramos|ml|cl|l)\b)/gi,"$1$2");if(!clean)return false;
    if(/^(?:AYUNO|ENTRENAMIENTO|SUPLEMENTACI[ÓO]N|OBSERVACIONES)\b/i.test(clean)||excludedLine(clean)){excluded++;return false;}
    const m=clean.match(/^(.*?)\s*\(([^)]*d[ií]as?\s*off[^)]*)\)\s*$/i);
    const base=(m?m[1]:clean).trim(),annotation=m?m[2]:"";
@@ -705,6 +705,8 @@ async function parseDietPdf(){
      else if(markers.length){const nearest=markers.reduce((best,m)=>Math.abs(m.y-r.y)<Math.abs(best.y-r.y)?m:best,markers[0]);mealNo=nearest.meal;}
      else mealNo=carry;
      if(/SUPLEMENTACI[ÓO]N|OBSERVACIONES|AYUNO|ENTRENAMIENTO|NOTA\s*:/i.test(r.text+" "+r.section))continue;
+      // En la primera página, todo lo situado antes del encabezado COMIDA 1 pertenece al bloque previo (ayuno) y no se importa.
+      if(pageNo===1&&Number.isFinite(firstMarker)&&r.y>firstMarker)continue;
      if(!byMeal.has(mealNo))byMeal.set(mealNo,[]);
      byMeal.get(mealNo).push(r.text);
     }
