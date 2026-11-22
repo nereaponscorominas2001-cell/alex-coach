@@ -653,13 +653,13 @@ async function parseDietPdf(){
    else{
     const m=z.match(/^(\d+(?:[.,]\d+)?)\s*(g|gr|gramos|ml|cl|l|ud|uds|unidad(?:es)?|lata(?:s)?)\s*(.*)$/i);
     if(!m)return null;
-    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").trim();
+    amount=Number(m[1].replace(",","."));unit=m[2].toLowerCase();name=(m[3]||"").replace(/^[\s:,-]+/,"").replace(/[),;]+$/g,"").trim();
     if(unit==="ud"||unit==="uds"||unit.startsWith("unidad")){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||1;unit="g";}
     else if(unit==="lata"||unit==="latas"){const f=matchDietFood(name);amount*=Number(f?.peso_unidad_g)||52;unit="g";}
     else if(unit==="cl"){amount*=10;unit="g"}else if(unit==="l"){amount*=1000;unit="g"}else if(unit==="ml")unit="g";
    }
    if(!amount||!name)return null;
-   const aliases={"aove":"aceite de oliva","proteína":"proteina","cereales mix mercadona 0%":"cereales mix","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz","pescado azúl":"pescado azul","frutos rojos":"frutos rojos"};
+   const aliases={"aove":"aceite de oliva","proteína":"proteina","cereales mix mercadona 0%":"cereales mix","tortas arroz":"tortitas de arroz","tortas":"tortitas de arroz","pescado azúl":"pescado azul","frutos rojos":"frutos rojos","arroz largo o basmati":"arroz basmati","pasta de cualquier tipo":"pasta","burgers ternera o potro":"burger ternera","ternera picada para las fajitas":"ternera picada","tiras pollo mercadona":"tiras de pollo","pechuga pavo":"pechuga de pavo","pechuga pollo":"pechuga de pollo"};
    const lookup=aliases[name.toLowerCase()]||name;
    const food=matchDietFood(lookup);
    return {source_name:name,name:food?.nombre||name,food_id:food?.id||null,grams:amount,kcal_100:+food?.kcal_100||0,prot_100:+food?.prot_100||0,hc_100:+food?.hc_100||0,grasa_100:+food?.grasa_100||0,unit};
