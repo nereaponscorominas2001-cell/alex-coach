@@ -180,14 +180,83 @@ async function loadExerciseReferenceLibrary(){
  return exerciseReferencePromise;
 }
 function normalizeExerciseReferenceName(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
+const EXERCISE_REFERENCE_IDS={
+ "abduccion de cadera en maquina":"hip-abduction",
+ "aperturas con mancuernas":"db-fly",
+ "buenos dias con barra":"good-morning",
+ "contractora pec deck":"pec-deck",
+ "cruce de poleas":"cable-fly",
+ "crunch en maquina":"machine-seated-crunch",
+ "crunch en polea":"cable-crunch",
+ "curl biceps alterno":"bicep-curl",
+ "curl biceps con barra":"barbell-curl",
+ "curl en polea baja":"cable-curl",
+ "curl femoral sentado":"seated-leg-curl",
+ "curl femoral tumbado":"leg-curl",
+ "curl femoral unilateral":"single-leg-lying-leg-curl",
+ "curl inclinado con mancuernas":"incline-db-curl",
+ "curl martillo":"hammer-curl",
+ "curl predicador":"preacher-curl",
+ "dominadas":"pull-up",
+ "elevacion de gemelos de pie":"standing-calf-raise",
+ "elevacion de gemelos sentado":"seated-calf-raise",
+ "elevacion de piernas colgado":"hanging-leg-raise",
+ "elevaciones laterales con mancuernas":"lateral-raise",
+ "elevaciones laterales en polea":"cable-lateral-raise",
+ "encogimientos con mancuernas":"db-shrug",
+ "extension de cuadriceps":"leg-extension",
+ "extension de triceps con mancuerna":"dumbbell-tricep-extension",
+ "extension de triceps en polea":"tricep-pushdown",
+ "extension de triceps por encima de la cabeza":"cable-overhead-tricep-extension",
+ "face pull":"face-pull",
+ "farmer walk":"dumbbell-farmers-walk",
+ "flexiones":"push-up",
+ "fondos en paralelas":"dips",
+ "hack squat":"hack-squat",
+ "hip thrust con barra":"hip-thrust",
+ "hip thrust en maquina":"plate-loaded-glute-drive",
+ "jalon agarre neutro":"v-bar-lat-pulldown",
+ "jalon al pecho":"lat-pulldown",
+ "pajaros con mancuernas":"dumbbell-reverse-fly",
+ "pajaros en maquina":"machine-reverse-fly",
+ "pallof press":"cable-pallof-press",
+ "patada de gluteo en polea":"cable-kickback",
+ "peso muerto convencional":"deadlift",
+ "peso muerto rumano con barra":"romanian-deadlift",
+ "peso muerto rumano con mancuernas":"dumbbell-romanian-deadlift",
+ "plancha frontal":"plank",
+ "plancha lateral":"side-plank",
+ "prensa de piernas":"leg-press",
+ "press banca con barra":"bench-press",
+ "press banca con mancuernas":"db-bench-press",
+ "press frances con barra z":"ez-bar-lying-tricep-extension",
+ "press hombro con mancuernas":"dumbbell-shoulder-press",
+ "press inclinado con mancuernas":"incline-db-press",
+ "press militar con barra":"ohp",
+ "puente de gluteos":"glute-bridge",
+ "pull through en polea":"cable-pull-through",
+ "remo con barra":"barbell-row",
+ "remo con mancuerna a una mano":"single-arm-db-row",
+ "remo en maquina con pecho apoyado":"chest-supported-machine-row",
+ "remo sentado en polea":"seated-cable-row",
+ "sentadilla bulgara":"bulgarian-split-squat",
+ "sentadilla frontal":"front-squat",
+ "sentadilla sumo":"sumo-squat",
+ "sentadilla trasera":"squat",
+ "step up al cajon":"step-ups",
+ "swing con kettlebell":"kettlebell-swing",
+ "zancadas caminando":"walking-lunge"
+};
 function findExerciseReference(name){
  const wanted=normalizeExerciseReferenceName(name);if(!wanted||!exerciseReferenceLibrary?.length)return null;
- // Solo coincidencias exactas: evita asociar, por similitud, ejercicios biomecánicamente distintos.
+ const id=EXERCISE_REFERENCE_IDS[wanted];
+ if(id){const byId=exerciseReferenceLibrary.find(e=>e.id===id);if(byId)return byId;}
+ // Respaldo solo para coincidencias literales, nunca aproximadas.
  return exerciseReferenceLibrary.find(e=>[e.name_es,e.name_en].some(n=>normalizeExerciseReferenceName(n)===wanted))||null;
 }
 function exerciseReferenceHtml(x){
  const e=findExerciseReference(x.name),flat=e?.images?.flat;
- const path=flat?.start||flat?.main||flat?.peak;
+ const path=flat?.peak||flat?.start||flat?.main;
  if(!path)return '<div class="exercise-reference-missing" aria-label="Imagen no disponible">Sin imagen</div>';
  return '<div class="exercise-reference-thumb"><img src="https://exercise-dataset.com/'+esc(path)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
 }
