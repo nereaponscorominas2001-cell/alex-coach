@@ -996,7 +996,7 @@ async function savePlan(){
  else data={days:planDraft.days};
  const old=await sb.from("plans").update({activo:false}).eq("client_id",planDraft.client_id).eq("tipo",type).eq("activo",true);
  if(old.error)return alert("No se pudo archivar la versión anterior: "+old.error.message);
- const r=await sb.from("plans").insert({client_id:planDraft.client_id,tipo:type,nombre,objetivos:document.querySelector("#planGoal").value,observaciones:document.querySelector("#planNotes").value,data,version,activo:true});
+ const r=await sb.from("plans").insert({client_id:planDraft.client_id,tipo:type,nombre:name,objetivos:document.querySelector("#planGoal").value,observaciones:document.querySelector("#planNotes").value,data,version,activo:true});
  if(r.error)return alert("No se pudo guardar: "+r.error.message);
  planDraft=null;alert("Plan publicado como versión "+version);draw();
 }
