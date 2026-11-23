@@ -1156,29 +1156,12 @@ function dietFoodCategory(f){
 function dietFoodFamily(f){
  const n=String(f?.nombre||f?.name||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
  const id=String(f?.id||"");
- if(id==="group_poultry")return "aves";
- if(id==="group_lean_meat")return "carne";
- if(id==="group_white_fish")return "pescado_blanco";
- if(id==="group_shellfish")return "marisco";
- if(id==="group_protein_yogurt")return "lacteos";
- if(id==="group_red_berries")return "fruta";
- if(id==="group_nuts"||id==="group_nut_butters"||/almendra|anacardo|avellana|nuez|pistacho|cacahuete|crema de frutos secos/.test(n))return "frutos_secos";
- if(id==="group_oils"||/aceite|mantequilla/.test(n))return "grasas_aceites";
- if(/semillas|chia|lino/.test(n))return "semillas";
- if(/aguacate|guacamole/.test(n))return "aguacate";
- if(id==="group_rice"||id==="group_pasta"||id==="group_potato"||id==="group_sweet_potato"||/arroz|pasta|patata|boniato|batata|avena|cereal|corn flakes|bagel|pan |tortita|tortilla|cuscus|quinoa|harina de trigo|crema de arroz/.test(n))return "cereales_tuberculos";
- if(/calabacin|calabaza|berenjena|brocoli|cebolla|champi|coliflor|esparrago|espinaca|judia verde|lechuga|pepino|pimiento|tomate|zanahoria/.test(n))return "verduras";
- if(id==="group_red_berries"||/fresa|frambuesa|arandano|frutos rojos|kiwi|limon|mandarina|manzana|pera|melocoton|melon|naranja|pina|platano|sandia|uva/.test(n))return "fruta";
+ if(/calabacin|calabaza|berenjena|brocoli|cebolla|champi|coliflor|esparrago|espinaca|judia verde|lechuga|pepino|pimiento|tomate|zanahoria|verdura/.test(n))return "verduras";
+ if(/fresa|frambuesa|arandano|frutos rojos|kiwi|limon|mandarina|manzana|pera|melocoton|melon|naranja|pina|platano|sandia|uva|fruta/.test(n)||id==="group_red_berries")return "fruta";
  if(/garbanzo|lenteja|alubia|guisante/.test(n))return "legumbres";
- if(id==="group_poultry"||/pollo|pavo/.test(n))return "aves";
- if(id==="group_lean_meat"||/ternera|vacuno|cerdo|potro|conejo|burger/.test(n))return "carne";
- if(id==="group_white_fish"||/bacalao|dorada|lubina|merluza|pescado blanco/.test(n))return "pescado_blanco";
- if(/salmon|atun|pescado azul/.test(n))return "pescado_azul";
- if(id==="group_shellfish"||/gamba|langostino|mejillon/.test(n))return "marisco";
- if(/huevo|clara/.test(n))return "huevos";
- if(/yogur|leche|queso|mozzarella/.test(n))return "lacteos";
- if(/whey|proteina|gelatina/.test(n))return "suplementos_proteicos";
- if(/azucar|miel|mermelada|powerade|vinagre|cafe|chocolate|bacon|jamon/.test(n))return "otros";
+ if(id==="group_rice"||id==="group_pasta"||id==="group_potato"||id==="group_sweet_potato"||/arroz|pasta|patata|boniato|batata|avena|cereal|corn flakes|bagel|pan|tortita|tortilla|fajita|wrap|cuscus|quinoa|harina|crema de arroz/.test(n))return "hidratos_base";
+ if(id==="group_nuts"||id==="group_nut_butters"||id==="group_oils"||/almendra|anacardo|avellana|nuez|pistacho|cacahuete|crema de frutos secos|aceite|mantequilla|semillas|chia|lino|aguacate|guacamole/.test(n))return "grasas";
+ if(id==="group_poultry"||id==="group_lean_meat"||id==="group_white_fish"||id==="group_shellfish"||id==="group_protein_yogurt"||/pollo|pavo|ternera|vacuno|cerdo|potro|conejo|burger|carne|bacalao|dorada|lubina|merluza|salmon|atun|pescado|gamba|langostino|mejillon|marisco|huevo|clara|yogur|leche|queso|mozzarella|whey|proteina|gelatina|jamon/.test(n))return "proteinas";
  return "otros";
 }
 function dietFoodIsCompatible(source,candidate,sourceGrams,sourceMacro,macroKey){
@@ -1186,14 +1169,7 @@ function dietFoodIsCompatible(source,candidate,sourceGrams,sourceMacro,macroKey)
  const family=dietFoodFamily(source);
  if(family==="otros"||family!==dietFoodFamily(candidate))return false;
  const sourceDensity=Math.max(0,+source[macroKey]||0),candidateDensity=Math.max(0,+candidate[macroKey]||0);
- if(!sourceDensity||!candidateDensity||!sourceGrams||!sourceMacro)return false;
- const equivalentGrams=sourceGrams*sourceDensity/candidateDensity;
- const totals=(f,g)=>({k:(+f.kcal_100||0)*g/100,p:(+f.prot_100||0)*g/100,c:(+f.hc_100||0)*g/100,f:(+f.grasa_100||0)*g/100});
- const a=totals(source,sourceGrams),b=totals(candidate,equivalentGrams);
- const close=(x,y,tolerance)=>{const scale=Math.max(Math.abs(x),Math.abs(y),1);return Math.abs(x-y)<=scale*tolerance};
- if(!close(a.k,b.k,.30))return false;
- for(const key of ["p","c","f"]){const av=a[key],bv=b[key];if(Math.max(av,bv)>=2&&!close(av,bv,.35))return false}
- return true;
+ return sourceDensity>0&&candidateDensity>0&&sourceGrams>0&&sourceMacro>0;
 }
 function changeDietFood(planId,set,mealIndex,foodIndex,foodId,baseGrams,baseMacro,macroKey){
  const key="diet-swaps:"+me.id+":"+planId+":"+set;let swaps={};try{swaps=JSON.parse(localStorage.getItem(key)||"{}")}catch(e){}
