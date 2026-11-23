@@ -320,10 +320,10 @@ function findSecondaryExerciseReference(name){
 function exerciseReferenceHtml(x){
  const e=findExerciseReference(x.name),flat=e?.images?.flat;
  const repdbPath=flat?.peak||flat?.start||flat?.main;
- if(repdbPath)return '<div class="exercise-reference-thumb"><img src="https://exercise-dataset.com/'+esc(repdbPath)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
+ if(repdbPath)return '<div class="exercise-reference-thumb"><img src="https://exercise-dataset.com/'+esc(repdbPath)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.remove()"></div>';
  const secondary=findSecondaryExerciseReference(x.name),photo=secondary?.images?.[0];
- if(photo)return '<div class="exercise-reference-thumb"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/'+photo.split('/').map(encodeURIComponent).join('/')+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
- return '<div class="exercise-reference-missing" aria-label="Imagen no disponible">Sin imagen</div>';
+ if(photo)return '<div class="exercise-reference-thumb"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/'+photo.split('/').map(encodeURIComponent).join('/')+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.remove()"></div>';
+ return '';
 }
 function exerciseReferenceAttribution(){return '<p class="muted" style="font-size:11px;text-align:center;margin:16px 0">Imágenes: <a href="https://repdb.co" target="_blank" rel="nofollow noopener">RepDB</a> y <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="nofollow noopener">Free Exercise DB (Unlicense)</a>.</p>'}
 
