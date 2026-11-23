@@ -842,7 +842,7 @@ async function parseTrainingPdf(){
    if(topBack){
     const name=clean(topBack[1]),topSets=Number(topBack[2]),backSets=Number(topBack[4]);
     const topReps=clean(topBack[3]).replace(/\s*[–-]\s*/g,"–"),backReps=clean(topBack[5]).replace(/\s*[–-]\s*/g,"–");
-    if(name.length>=3)return {name,sets:topSets+backSets,reps:"Top Set "+topReps+" / Back Off "+backReps,rest:90,notes:"Top Set: "+topSets+" × "+topReps+" reps · Back Off: "+backSets+" × "+backReps+" reps",video_url:"",_cardio:false};
+    if(name.length>=3)return {name,sets:topSets+backSets,reps:topSets+" Top Set ("+topReps+") / "+backSets+" Back Off ("+backReps+")",rest:90,notes:topSets+" serie"+(topSets===1?"":"s")+" Top Set: "+topReps+" reps · "+backSets+" serie"+(backSets===1?"":"s")+" Back Off: "+backReps+" reps",video_url:"",_cardio:false};
    }
    // Dos bloques de una serie: interpretar como Top Set (TP) y Back Off (BO).
    const colonForBlocks=raw.lastIndexOf(":");
