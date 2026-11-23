@@ -1156,6 +1156,12 @@ function dietFoodCategory(f){
 function dietFoodFamily(f){
  const n=String(f?.nombre||f?.name||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
  const id=String(f?.id||"");
+ if(id==="group_poultry")return "aves";
+ if(id==="group_lean_meat")return "carne";
+ if(id==="group_white_fish")return "pescado_blanco";
+ if(id==="group_shellfish")return "marisco";
+ if(id==="group_protein_yogurt")return "lacteos";
+ if(id==="group_red_berries")return "fruta";
  if(id==="group_nuts"||id==="group_nut_butters"||/almendra|anacardo|avellana|nuez|pistacho|cacahuete|crema de frutos secos/.test(n))return "frutos_secos";
  if(id==="group_oils"||/aceite|mantequilla/.test(n))return "grasas_aceites";
  if(/semillas|chia|lino/.test(n))return "semillas";
