@@ -560,7 +560,7 @@ async c_dieta(){
  </div>
  ${meals.length?meals.slice(dietProgress.index,dietProgress.index+1).map((m,i)=>{i=dietProgress.index;const total=(m.foods||[]).reduce((a,raw,fi)=>{const x=effectiveFood(raw,i,fi),q=(+x.grams||0)/100;return{k:a.k+(+x.kcal_100||0)*q,p:a.p+(+x.prot_100||0)*q,c:a.c+(+x.hc_100||0)*q,g:a.g+(+x.grasa_100||0)*q}},{k:0,p:0,c:0,g:0});const recipe=currentRecipe;
  return '<section class="diet-meal"><div class="diet-meal-head"><div style="display:flex;align-items:center;gap:10px"><span class="diet-index">'+(i+1)+'</span><div><span class="diet-label">COMIDA '+(i+1)+' DE '+meals.length+'</span><h2>'+esc(m.name)+'</h2></div></div><span class="tag">'+Math.round(total.k)+' kcal</span></div>'+
- ((m.foods||[]).length?(m.foods||[]).map((raw,fi)=>{const x=effectiveFood(raw,i,fi),q=(+x.grams||0)/100,k=Math.round((+x.kcal_100||0)*q),pr=((+x.prot_100||0)*q).toFixed(1),hc=((+x.hc_100||0)*q).toFixed(1),gr=((+x.grasa_100||0)*q).toFixed(1),cat=dietFoodCategory(raw),macro=cat==="H"?"hc_100":cat==="P"?"prot_100":"grasa_100",opts=dietSwapFoods.filter(f=>String(f.id)!==String(raw.food_id)&&dietFoodCategory(f)===cat&&(+f[macro]||0)>0),selected=swaps[i+":"+fi]?.food_id||"";return '<div class="diet-food"><div style="min-width:0;flex:1"><div class="diet-food-title-row"><div class="diet-food-name">'+esc(x.name)+'</div><label class="diet-swap-control" title="Elegir alimento equivalente"><select onchange="changeDietFood(\''+p.id+'\',\''+dietSet+'\','+i+','+fi+',this.value,'+(+raw.grams||0)+','+(+raw[macro]||0)+',\''+macro+'\')"><option value="">Cambiar por…</option>'+opts.map(f=>'<option value="'+f.id+'" '+(String(selected)===String(f.id)?'selected':'')+'>'+esc(f.nombre)+'</option>').join("")+'</select></label></div>'+(x.alternatives?.length?'<div class="diet-food-options">Opciones del plan: '+esc(x.alternatives.map(o=>o.name+' ('+o.grams+' '+o.unit+')').join(' · '))+'</div>':'')+'<div class="diet-food-meta"><span class="diet-chip kcal">'+k+' kcal</span><span class="diet-chip">P '+pr+' g</span><span class="diet-chip">HC '+hc+' g</span><span class="diet-chip">G '+gr+' g</span></div></div><div class="diet-amount">'+(x.quantity_label?esc(x.quantity_label):(Math.round(+x.grams*10)/10)+' <small>g</small>')+'</div></div>'}).join(""):'<p class="muted">No hay alimentos añadidos en esta comida.</p>')+
+ ((m.foods||[]).length?(m.foods||[]).map((raw,fi)=>{const x=effectiveFood(raw,i,fi),q=(+x.grams||0)/100,k=Math.round((+x.kcal_100||0)*q),pr=((+x.prot_100||0)*q).toFixed(1),hc=((+x.hc_100||0)*q).toFixed(1),gr=((+x.grasa_100||0)*q).toFixed(1),cat=dietFoodCategory(raw),macro=cat==="H"?"hc_100":cat==="P"?"prot_100":"grasa_100",opts=dietSwapFoods.filter(f=>String(f.id)!==String(raw.food_id)&&dietFoodIsCompatible(raw,f,+raw.grams||0,+raw[macro]||0,macro)),selected=swaps[i+":"+fi]?.food_id||"";return '<div class="diet-food"><div style="min-width:0;flex:1"><div class="diet-food-title-row"><div class="diet-food-name">'+esc(x.name)+'</div><label class="diet-swap-control" title="Elegir alimento equivalente"><select onchange="changeDietFood(\''+p.id+'\',\''+dietSet+'\','+i+','+fi+',this.value,'+(+raw.grams||0)+','+(+raw[macro]||0)+',\''+macro+'\')"><option value="">Cambiar por…</option>'+opts.map(f=>'<option value="'+f.id+'" '+(String(selected)===String(f.id)?'selected':'')+'>'+esc(f.nombre)+'</option>').join("")+'</select></label></div>'+(x.alternatives?.length?'<div class="diet-food-options">Opciones del plan: '+esc(x.alternatives.map(o=>o.name+' ('+o.grams+' '+o.unit+')').join(' · '))+'</div>':'')+'<div class="diet-food-meta"><span class="diet-chip kcal">'+k+' kcal</span><span class="diet-chip">P '+pr+' g</span><span class="diet-chip">HC '+hc+' g</span><span class="diet-chip">G '+gr+' g</span></div></div><div class="diet-amount">'+(x.quantity_label?esc(x.quantity_label):(Math.round(+x.grams*10)/10)+' <small>g</small>')+'</div></div>'}).join(""):'<p class="muted">No hay alimentos añadidos en esta comida.</p>')+
  '<div class="diet-meal-total"><strong>Total de esta toma</strong><div style="margin-top:5px;font-size:13px">🔥 '+Math.round(total.k)+' kcal · 💪 P '+total.p.toFixed(1)+' g · 🍚 HC '+total.c.toFixed(1)+' g · 🥑 G '+total.g.toFixed(1)+' g</div></div>'+
  (recipe?'<div class="diet-recipe"><div><img src="'+recipe.img+'" alt="Fotografía de '+esc(recipe.title)+'" loading="lazy"><span class="diet-label">Fotografía de la receta original</span></div><div><h4>Receta encontrada con tu dieta</h4><div class="diet-recipe-title">'+esc(recipe.title)+'</div><p>'+esc(recipe.steps)+'</p><p style="margin-top:8px;color:#aaa">Ingredientes de la receta: '+esc(recipe.ingredients)+'</p><p style="margin-top:6px;color:var(--lime)">Coinciden con tu dieta: '+esc((recipe.matched||[]).join(", "))+'</p><a class="diet-label" style="color:var(--lime)" href="'+recipe.source+'" target="_blank" rel="noopener">Ver receta original ↗</a><span class="diet-label">Idea de preparación, no validación nutricional: respeta las cantidades de tu plan y revisa ingredientes, aceites y salsas.</span></div></div>':'<div class="diet-note"><b>Recetas</b><br>No hemos encontrado una receta compatible para esta comida.</div>')+'</section>'
  }).join(""):'<div class="card">No hay comidas configuradas en esta dieta.</div>'}
@@ -1153,11 +1153,47 @@ function dietFoodCategory(f){
  if(Math.max(h,p,g)<=0)return "H";
  return h>=p&&h>=g?"H":p>=g?"P":"G";
 }
+function dietFoodFamily(f){
+ const n=String(f?.nombre||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+ const id=String(f?.id||"");
+ if(id==="group_nuts"||id==="group_nut_butters"||/almendra|anacardo|avellana|nuez|pistacho|cacahuete|crema de frutos secos/.test(n))return "frutos_secos";
+ if(id==="group_oils"||/aceite|mantequilla/.test(n))return "grasas_aceites";
+ if(/semillas|chia|lino/.test(n))return "semillas";
+ if(/aguacate|guacamole/.test(n))return "aguacate";
+ if(id==="group_rice"||id==="group_pasta"||id==="group_potato"||id==="group_sweet_potato"||/arroz|pasta|patata|boniato|batata|avena|cereal|corn flakes|bagel|pan |tortita|tortilla|cuscus|quinoa|harina de trigo|crema de arroz/.test(n))return "cereales_tuberculos";
+ if(/calabacin|calabaza|berenjena|brocoli|cebolla|champi|coliflor|esparrago|espinaca|judia verde|lechuga|pepino|pimiento|tomate|zanahoria/.test(n))return "verduras";
+ if(id==="group_red_berries"||/fresa|frambuesa|arandano|frutos rojos|kiwi|limon|mandarina|manzana|pera|melocoton|melon|naranja|pina|platano|sandia|uva/.test(n))return "fruta";
+ if(/garbanzo|lenteja|alubia|guisante/.test(n))return "legumbres";
+ if(id==="group_poultry"||/pollo|pavo/.test(n))return "aves";
+ if(id==="group_lean_meat"||/ternera|vacuno|cerdo|potro|conejo|burger/.test(n))return "carne";
+ if(id==="group_white_fish"||/bacalao|dorada|lubina|merluza|pescado blanco/.test(n))return "pescado_blanco";
+ if(/salmon|atun|pescado azul/.test(n))return "pescado_azul";
+ if(id==="group_shellfish"||/gamba|langostino|mejillon/.test(n))return "marisco";
+ if(/huevo|clara/.test(n))return "huevos";
+ if(/yogur|leche|queso|mozzarella/.test(n))return "lacteos";
+ if(/whey|proteina|gelatina/.test(n))return "suplementos_proteicos";
+ if(/azucar|miel|mermelada|powerade|vinagre|cafe|chocolate|bacon|jamon/.test(n))return "otros";
+ return "otros";
+}
+function dietFoodIsCompatible(source,candidate,sourceGrams,sourceMacro,macroKey){
+ if(!source||!candidate||dietFoodCategory(source)!==dietFoodCategory(candidate))return false;
+ const family=dietFoodFamily(source);
+ if(family==="otros"||family!==dietFoodFamily(candidate))return false;
+ const sourceDensity=Math.max(0,+source[macroKey]||0),candidateDensity=Math.max(0,+candidate[macroKey]||0);
+ if(!sourceDensity||!candidateDensity||!sourceGrams||!sourceMacro)return false;
+ const equivalentGrams=sourceGrams*sourceDensity/candidateDensity;
+ const totals=(f,g)=>({k:(+f.kcal_100||0)*g/100,p:(+f.prot_100||0)*g/100,c:(+f.hc_100||0)*g/100,f:(+f.grasa_100||0)*g/100});
+ const a=totals(source,sourceGrams),b=totals(candidate,equivalentGrams);
+ const close=(x,y,tolerance)=>{const scale=Math.max(Math.abs(x),Math.abs(y),1);return Math.abs(x-y)<=scale*tolerance};
+ if(!close(a.k,b.k,.30))return false;
+ for(const key of ["p","c","f"]){const av=a[key],bv=b[key];if(Math.max(av,bv)>=2&&!close(av,bv,.35))return false}
+ return true;
+}
 function changeDietFood(planId,set,mealIndex,foodIndex,foodId,baseGrams,baseMacro,macroKey){
  const key="diet-swaps:"+me.id+":"+planId+":"+set;let swaps={};try{swaps=JSON.parse(localStorage.getItem(key)||"{}")}catch(e){}
  const rowKey=mealIndex+":"+foodIndex;
  if(!foodId){delete swaps[rowKey];localStorage.setItem(key,JSON.stringify(swaps));return draw()}
- const f=dietSwapFoods.find(x=>String(x.id)===String(foodId));if(!f)return alert("No se ha encontrado ese alimento en la biblioteca.");
+ const f=dietSwapFoods.find(x=>String(x.id)===String(foodId));if(!f)return alert("No se ha encontrado ese alimento en la biblioteca.");if(dietFoodCategory(f)!==(macroKey==="hc_100"?"H":macroKey==="prot_100"?"P":"G"))return alert("Elige un alimento del mismo grupo nutricional.");
  const density=+f[macroKey]||0,sourceAmount=(+baseGrams||0)*(+baseMacro||0)/100;
  if(density<=0||sourceAmount<=0)return alert("No se puede calcular una equivalencia para este alimento.");
  const grams=Math.round(sourceAmount/density*1000)/10;
