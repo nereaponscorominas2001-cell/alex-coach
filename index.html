@@ -854,14 +854,22 @@ async function parseTrainingPdf(){
    }
    const colon=raw.lastIndexOf(":");
    const name=colon>1?clean(raw.slice(0,colon)):raw,prescription=colon>1?clean(raw.slice(colon+1)):"";
+   // Formato por serie: "Nombre: 15 12 10 en cada serie".
+   const perSetSource=prescription||raw;
+   const perSet=perSetSource.match(/^(.*?)\s+(\d+(?:\s+\d+){1,})\s+en cada serie\s*$/i);
+   if(perSet){
+    const exerciseName=clean(perSet[1]).replace(/:$/,""),repValues=perSet[2].trim().split(/\s+/);
+    if(exerciseName.length>=3)return {name:exerciseName,sets:repValues.length,reps:repValues.join(" / "),rest:90,notes:"Repeticiones por serie: "+repValues.join(" · "),video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(exerciseName)};
+   }
    if(!prescription||name.length<3)return null;
-   const setsMatches=[...prescription.matchAll(/(\d+)\s*[x×]/gi)];
-   if(!setsMatches.length)return null;
-   const sets=setsMatches.reduce((n,m)=>n+Number(m[1]||0),0);
-   const first=prescription.match(/\d+\s*[x×]\s*(.+)/i);
-   let reps=first?clean(first[1]):prescription;
-   reps=reps.replace(/\s+/g," ").replace(/\b(a|hasta)\b/gi,"–").trim();
-   return {name,sets,reps:reps||prescription,rest:90,notes:/cluster|descendente|drop.?set|fallo|RIR|pausa|tempo/i.test(prescription)?"Técnica especial: "+prescription:"",video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name)};
+   // Admite varios bloques: "1x 6 a 10 1x 11 a 14".
+   const blocks=[...prescription.matchAll(/(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|hasta|[-–])\s*\d+)?)/gi)];
+   if(!blocks.length)return null;
+   const sets=blocks.reduce((n,m)=>n+Number(m[1]||0),0);
+   const reps=blocks.map(m=>clean(m[2]).replace(/\s*(?:a|hasta|[-–])\s*/gi,"–")).join(" / ");
+   const remainder=prescription.replace(/(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|hasta|[-–])\s*\d+)?)/gi," ").replace(/[·—–,;]+/g," ").trim();
+   const special=/cluster|descendente|drop.?set|fallo|RIR|pausa|tempo/i.test(remainder);
+   return {name,sets,reps:reps||prescription,rest:90,notes:special?"Técnica especial: "+remainder:"",video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name)};
   };
   let current=null;
   for(const row of lines){
