@@ -174,6 +174,17 @@ const SEL=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(x=>`<option value="${
 const APP_URL="https://coach-os-alex-vicent-coach.vercel.app";
 let templateAssign=null;
 let exerciseReferenceLibrary=null,exerciseReferencePromise=null;
+let secondaryExerciseReferenceLibrary=null,secondaryExerciseReferencePromise=null;
+async function loadExerciseReferenceLibrary(){
+ if(exerciseReferenceLibrary)return exerciseReferenceLibrary;
+ if(!exerciseReferencePromise)exerciseReferencePromise=fetch("https://exercise-dataset.com/exercises.json").then(r=>{if(!r.ok)throw new Error("No se pudo cargar la biblioteca visual");return r.json()}).then(d=>(exerciseReferenceLibrary=d.exercises||[],exerciseReferenceLibrary)).catch(e=>{console.warn("Biblioteca visual RepDB:",e);exerciseReferenceLibrary=[];return exerciseReferenceLibrary});
+ return exerciseReferencePromise;
+}
+async function loadSecondaryExerciseReferenceLibrary(){
+ if(secondaryExerciseReferenceLibrary)return secondaryExerciseReferenceLibrary;
+ if(!secondaryExerciseReferencePromise)secondaryExerciseReferencePromise=fetch("https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/dist/exercises.json").then(r=>{if(!r.ok)throw new Error("No se pudo cargar Free Exercise DB");return r.json()}).then(d=>(secondaryExerciseReferenceLibrary=d||[],secondaryExerciseReferenceLibrary)).catch(e=>{console.warn("Biblioteca visual Free Exercise DB:",e);secondaryExerciseReferenceLibrary=[];return secondaryExerciseReferenceLibrary});
+ return secondaryExerciseReferencePromise;
+}
 async function loadExerciseReferenceLibrary(){
  if(exerciseReferenceLibrary)return exerciseReferenceLibrary;
  if(!exerciseReferencePromise)exerciseReferencePromise=fetch("https://exercise-dataset.com/exercises.json").then(r=>{if(!r.ok)throw new Error("No se pudo cargar la biblioteca visual");return r.json()}).then(d=>(exerciseReferenceLibrary=d.exercises||[],exerciseReferenceLibrary)).catch(e=>{console.warn("Biblioteca visual de ejercicios:",e);exerciseReferenceLibrary=[];return exerciseReferenceLibrary});
@@ -279,13 +290,42 @@ function findExerciseReference(name){
  // Respaldo solo para coincidencias literales, nunca aproximadas.
  return exerciseReferenceLibrary.find(e=>[e.name_es,e.name_en].some(n=>normalizeExerciseReferenceName(n)===wanted))||null;
 }
+const SECONDARY_EXERCISE_REFERENCE_IDS={
+ "crunch en polea":"Cable_Crunch",
+ "crunch inverso":"Reverse_Crunch",
+ "curl femoral sentado":"Seated_Leg_Curl",
+ "curl inclinado con mancuernas":"Incline_Dumbbell_Curl",
+ "curl predicador en polea":"Cable_Preacher_Curl",
+ "dead bug bicho muerto":"Dead_Bug",
+ "elevacion de gemelos de pie":"Standing_Calf_Raises",
+ "elevaciones de piernas colgado":"Hanging_Leg_Raise",
+ "extension de cuadriceps":"Leg_Extensions",
+ "peso muerto rumano":"Romanian_Deadlift",
+ "press inclinado con mancuernas":"Incline_Dumbbell_Press",
+ "press inclinado en smith 15 30":"Smith_Machine_Bench_Press",
+ "press inclinado en smith":"Smith_Machine_Bench_Press",
+ "remo sentado en polea enfasis en espalda media":"Seated_Cable_Rows",
+ "sentadilla hack":"Hack_Squat",
+ "hack squat":"Hack_Squat",
+ "stairmaster a ritmo constante":"Stairmaster",
+ "stairmaster despues de entrenar":"Stairmaster",
+ "vacuum abdominal":"Stomach_Vacuum"
+};
+function findSecondaryExerciseReference(name){
+ const wanted=normalizeExerciseReferenceName(name);if(!wanted||!secondaryExerciseReferenceLibrary?.length)return null;
+ const id=SECONDARY_EXERCISE_REFERENCE_IDS[wanted];
+ if(id){const hit=secondaryExerciseReferenceLibrary.find(e=>e.id===id);if(hit)return hit;}
+ return secondaryExerciseReferenceLibrary.find(e=>normalizeExerciseReferenceName(e.name)===wanted)||null;
+}
 function exerciseReferenceHtml(x){
  const e=findExerciseReference(x.name),flat=e?.images?.flat;
- const path=flat?.peak||flat?.start||flat?.main;
- if(!path)return '<div class="exercise-reference-missing" aria-label="Imagen no disponible">Sin imagen</div>';
- return '<div class="exercise-reference-thumb"><img src="https://exercise-dataset.com/'+esc(path)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
+ const repdbPath=flat?.peak||flat?.start||flat?.main;
+ if(repdbPath)return '<div class="exercise-reference-thumb"><img src="https://exercise-dataset.com/'+esc(repdbPath)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
+ const secondary=findSecondaryExerciseReference(x.name),photo=secondary?.images?.[0];
+ if(photo)return '<div class="exercise-reference-thumb"><img src="https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/'+photo.split('/').map(encodeURIComponent).join('/')+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'Sin imagen\';this.parentElement.classList.add(\'exercise-reference-missing\')"></div>';
+ return '<div class="exercise-reference-missing" aria-label="Imagen no disponible">Sin imagen</div>';
 }
-function exerciseReferenceAttribution(){return '<p class="muted" style="font-size:11px;text-align:center;margin:16px 0">Imágenes de referencia: Exercise data by <a href="https://repdb.co" target="_blank" rel="nofollow noopener">RepDB</a>.</p>'}
+function exerciseReferenceAttribution(){return '<p class="muted" style="font-size:11px;text-align:center;margin:16px 0">Imágenes: <a href="https://repdb.co" target="_blank" rel="nofollow noopener">RepDB</a> y <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="nofollow noopener">Free Exercise DB (Unlicense)</a>.</p>'}
 
 let me=null,tab="inicio",sel=null,chatSel=null,signupMode=false,dietSet="training",adminPlansTab="dieta",bootSeq=0,drawSeq=0,templateEditId=null,inviteMode=new URLSearchParams(location.hash.slice(1)).get("type")==="invite",recoveryMode=new URLSearchParams(location.hash.slice(1)).get("type")==="recovery";
 const CT=[["inicio","Inicio"],["dieta","Mi dieta"],["entreno","Mi entrenamiento"],["revision","Mi revisión"],["dietas","Dietas y compras"],["semanal","Entrenamiento semanal"],["mensajes","Mensajes"],["perfil","Mi perfil"]],AT=[["inicio","Resumen"],["clientes","Clientes"],["planes","Administrados"],["biblioteca","Biblioteca"],["plantillas","Plantillas"]];
@@ -577,6 +617,7 @@ async c_entreno(){
  if(dayIndex<0)return '<h1>Mi <em>entrenamiento</em></h1><div class="card"><h2>Hoy toca descanso</h2><p class="muted">No tienes ninguna sesión asignada para '+weekday+'. Disfruta de la recuperación.</p></div>';
  const d=days[dayIndex],exercises=d.exercises||[];
  await loadExerciseReferenceLibrary();
+ await loadSecondaryExerciseReferenceLibrary();
  const completed=exercises.filter((x,j)=>doneToday[dayIndex+'-'+j]).length;
  const stepQ=await sb.from("daily_logs").select("pasos").eq("client_id",me.id).eq("fecha",todayLocal).maybeSingle();
  const stepCount=stepQ.data?.pasos??"";
