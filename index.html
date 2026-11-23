@@ -168,7 +168,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 <script>
 const sb=supabase.createClient("https://fkcmpslsdbmeufcunajg.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZrY21wc2xzZGJtZXVmY3VuYWpnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUyMjM2MDMsImV4cCI6MjExMDc5OTYwM30.1gnHrsY_X3trq9PBI1mVTk6EYxLBfNN58Efp6Gx_gAk");
 const $=s=>document.querySelector(s),esc=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const today=()=>new Date().toISOString().slice(0,10),nv=id=>{const v=$("#"+id).value;return v===""?null:+v},sv=id=>$("#"+id).value;
+const today=()=>{const p=new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Madrid",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date()).reduce((a,x)=>(a[x.type]=x.value,a),{});return p.year+"-"+p.month+"-"+p.day},nv=id=>{const v=$("#"+id).value;return v===""?null:+v},sv=id=>$("#"+id).value;
 const F=(id,l,t="number",v="")=>`<label>${l}<input id="${id}" type="${t}" step="0.1" value="${v}"></label>`;
 const SEL=(id,l,o)=>`<label>${l}<select id="${id}">${o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join("")}</select></label>`;
 const APP_URL="https://coach-os-alex-vicent-coach.vercel.app";
@@ -499,7 +499,7 @@ async c_dieta(){
  if(!p)return '<h1>Mi <em>alimentación</em></h1><div class="card">Tu entrenador todavía no ha publicado una dieta.</div>';
  const d=p.data||{},sets=d.meal_sets||null,activeSet=sets?(dietSet==="recovery"?sets.recovery:sets.training):null,t=activeSet?.targets||d.targets||{},meals=activeSet?.meals||d.meals||[];
  const {data:swapFoods}=await sb.from("foods").select("id,nombre,kcal_100,prot_100,hc_100,grasa_100").order("nombre");dietSwapFoods=buildDietSwapOptions(swapFoods||[]);
- const swapStorageKey="diet-swaps:"+me.id+":"+p.id+":"+dietSet+":"+today();let swaps={};try{swaps=JSON.parse(localStorage.getItem(swapStorageKey)||"{}")}catch(e){swaps={}}
+ const swapStorageKey="diet-swaps:"+me.id+":"+p.id+":"+dietSet+":"+today();try{const prefix="diet-swaps:"+me.id+":";for(let i=localStorage.length-1;i>=0;i--){const k=localStorage.key(i);if(k&&k.startsWith(prefix)&&!k.endsWith(":"+today()))localStorage.removeItem(k)}}catch(e){}let swaps={};try{swaps=JSON.parse(localStorage.getItem(swapStorageKey)||"{}")}catch(e){swaps={}}
  const effectiveFood=(x,mi,fi)=>{const s=swaps[mi+":"+fi];if(!s)return x;const f=dietSwapFoods.find(z=>String(z.id)===String(s.food_id));return f?{...x,...f,name:f.nombre,grams:+s.grams||x.grams,quantity_label:null}:x};
 
  const progressKey="diet-progress:"+me.id+":"+p.id+":"+dietSet+":"+today();
@@ -1308,5 +1308,6 @@ async function uploadProgressPhoto(){const file=document.querySelector("#progres
 async function saveMyProfile(){const r=await sb.from("profiles").update({nombre:sv("myName"),apellidos:sv("mySurname"),edad:nv("myAge"),telefono:sv("myPhone"),altura_cm:nv("myHeight"),profesion:sv("myJob"),objetivo:sv("myGoal"),alergias:sv("myAllergies"),patologias:sv("myPathologies"),lesiones:sv("myInjuries"),preferencias_alimentarias:sv("myFoodPrefs")}).eq("id",me.id);if(r.error)return alert(r.error.message);alert("Perfil actualizado");boot()}
 
 document.addEventListener('input',e=>{if(e.target?.id==='stepsToday'||e.target?.id==='stepsGoal')refreshStepProgress()});
+let observedLocalDay=today();const checkDietDayRollover=()=>{const current=today();if(current!==observedLocalDay){observedLocalDay=current;if(me)draw()}};setInterval(checkDietDayRollover,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkDietDayRollover()});
 boot();
 </script></body></html>
