@@ -729,6 +729,9 @@ async function saveFicha(id){const changes={nombre:sv("p_n"),apellidos:sv("p_sur
 async function openReviewNotification(id){const{error}=await sb.from("notifications").update({read_at:new Date().toISOString()}).eq("id",id);if(error)return alert("No se ha podido abrir el aviso: "+error.message);tab="revision";sel=null;await draw()}
 async function fb(id){if(ok(await sb.from("reviews").update({feedback:sv("fb"+id),estado:"completada"}).eq("id",id)))draw()}
 function setReviewScale(id,value){const input=$("#"+id);if(!input)return;input.value=String(value);document.querySelectorAll(`.review-scale-choice[data-scale="${id}"]`).forEach(b=>b.setAttribute("aria-pressed",String(Number(b.dataset.value)===Number(value))));}
+async function compressReviewPhoto(file){
+ try{const bitmap=await createImageBitmap(file),maxSide=1400,scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.78));if(!blob||blob.size>=file.size)return file;return new File([blob],file.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg",lastModified:Date.now()});}catch(e){console.warn("No se pudo comprimir la foto; se subirá el original.",e);return file;}
+}
 async function submitFullReview(){
  const btn=$("#sendFullReview");if(!btn)return;
  const date=sv("r_f");if(!date)return alert("Selecciona la fecha de revisión.");
@@ -750,8 +753,8 @@ async function submitFullReview(){
   const measures={client_id:me.id,fecha:date,cintura:nv("mWaist"),cadera:nv("mHip"),gluteos:nv("mGlute"),muslo:nv("mThigh"),brazo:nv("mArm"),pecho:nv("mChest")};
   if(Object.values(measures).slice(2).some(v=>v!==null)){const mr=await sb.from("measurements").insert(measures);if(mr.error)issues.push("Medidas: "+mr.error.message);}
   for(let i=0;i<files.length;i++){
-   const [kind,file]=files[i],safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_"),path=me.id+"/"+Date.now()+"-"+i+"-"+safe;
-   const up=await sb.storage.from("progress-photos").upload(path,file,{contentType:file.type,upsert:false});
+   const [kind,file]=files[i],optimized=await compressReviewPhoto(file),safe=optimized.name.replace(/[^a-zA-Z0-9._-]/g,"_"),path=me.id+"/"+Date.now()+"-"+i+"-"+safe;
+   const up=await sb.storage.from("progress-photos").upload(path,optimized,{contentType:optimized.type,upsert:false});
    if(up.error){issues.push("Foto "+kind+": "+up.error.message);continue;}
    const pr=await sb.from("photos").insert({client_id:me.id,fecha:date,tipo:kind,path,review_id:reviewId});
    if(pr.error){issues.push("Guardar foto "+kind+": "+pr.error.message);await sb.storage.from("progress-photos").remove([path]);}
