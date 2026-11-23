@@ -473,7 +473,7 @@ async a_clientes(){if(sel)return await clientV(sel);const [{data},{data:template
  const clientName=id=>{const x=(c.data||[]).find(y=>y.id===id);return esc(x?.nombre||x?.email||"Cliente")};
  return `<h1>${type==="dieta"?"Planes <em>nutricionales</em>":"Planes de <em>entrenamiento</em>"}</h1>\n ${type==="dieta"?`<div class="card pdf-import-cta"><div><span class="tag">IMPORTAR PDF</span><h3 style="margin:10px 0 4px;color:#fff">Crear plan nutricional desde PDF</h3><p class="muted" style="margin:0">Lee las comidas, cantidades y versiones de entrenamiento y descanso.</p></div><button class="btn" onclick="openDietPdfImporter()">↑ Subir PDF</button></div>`:`<div class="card pdf-import-cta"><div><span class="tag">IMPORTAR PDF</span><h3 style="margin:10px 0 4px;color:#fff">Crear entrenamiento desde PDF</h3><p class="muted" style="margin:0">Detecta días, ejercicios, series, repeticiones, cardio y notas.</p></div><button class="btn" onclick="openTrainingPdfImporter()">↑ Subir PDF</button></div>`}
  <div class="card"><h3>Crear ${type==="dieta"?"plan nutricional":"plan de entrenamiento"}</h3><div class="row"><label>Cliente<select id="planClient">${(c.data||[]).map(x=>'<option value="'+x.id+'">'+esc(x.nombre||x.email)+'</option>').join("")}</select></label><button class="btn" onclick="newPlan('${type}')">+ Crear ${type==="dieta"?"plan nutricional":"entrenamiento"}</button></div><p class="muted">Cada publicación crea una nueva versión y conserva las anteriores en el histórico.</p></div>
- <div class="card scroll"><table><tr><th>Cliente</th><th>Plan</th><th>Versión</th><th>Estado</th><th></th></tr>${rows.map(x=>'<tr><td>'+clientName(x.client_id)+'</td><td>'+esc(x.nombre)+'</td><td>v'+x.version+'</td><td>'+(x.activo?'<span class="tag">Activo</span>':'<span class="tag off">Histórico</span>')+'</td><td><button class="btn sm ghost" onclick="editPlan(\''+x.id+'\')">Ver / nueva versión</button> <button class="btn sm ghost" onclick="saveExistingPlanAsTemplate(\''+x.id+'\')">Guardar plantilla</button></td></tr>').join("")||'<tr><td colspan="5" class="muted">Todavía no hay planes de este tipo.</td></tr>'}</table></div>`;
+ <div class="card scroll"><table><tr><th>Cliente</th><th>Plan</th><th>Versión</th><th>Estado</th><th></th></tr>${rows.map(x=>'<tr><td>'+clientName(x.client_id)+'</td><td>'+esc(x.nombre)+'</td><td>v'+x.version+'</td><td>'+(x.activo?'<span class="tag">Activo</span>':'<span class="tag off">Histórico</span>')+'</td><td><button class="btn sm ghost" onclick="editPlan(\''+x.id+'\')">Ver / nueva versión</button> <button class="btn sm ghost" onclick="saveExistingPlanAsTemplate(\''+x.id+'\')">Guardar plantilla</button> '+(!x.activo?'<button class="btn sm danger" onclick="deletePlanVersion(\''+x.id+'\')">Eliminar versión</button>':'')+'</td></tr>').join("")||'<tr><td colspan="5" class="muted">Todavía no hay planes de este tipo.</td></tr>'}</table></div>`;
  },
 async a_biblioteca(){const [f,e]=await Promise.all([sb.from("foods").select("*").order("nombre"),sb.from("exercises").select("*").order("nombre")]);foodsCache=f.data||[];exCache=e.data||[];return `<h1>Biblioteca <em>de recursos</em></h1><div class="grid"><div class="card"><h3>Nuevo alimento</h3><div class="row">${F("foodName","Nombre","text")}${F("foodK","Kcal / 100 g")}${F("foodP","Proteína / 100 g")}${F("foodC","Hidratos / 100 g")}${F("foodG","Grasas / 100 g")}${F("foodUnit","Peso por unidad (g)")}</div><button class="btn" onclick="saveFood()">Guardar alimento</button><div class="scroll"><table><tr><th>Alimento</th><th>Kcal</th><th>P</th><th>HC</th><th>G</th><th>Peso unidad</th></tr>${foodsCache.map(x=>'<tr><td>'+esc(x.nombre)+'</td><td>'+x.kcal_100+'</td><td>'+x.prot_100+'</td><td>'+x.hc_100+'</td><td>'+x.grasa_100+'</td><td>'+(x.peso_unidad_g?x.peso_unidad_g+' g':'—')+'</td></tr>').join("")}</table></div></div><div class="card"><h3>Nuevo ejercicio</h3><div class="row">${F("exName","Nombre","text")}${F("exGroup","Grupo muscular","text")}${F("exVideo","URL vídeo","url")}</div><label>Indicaciones<textarea id="exNotes" rows="2"></textarea></label><button class="btn" onclick="saveExercise()">Guardar ejercicio</button><div class="scroll"><table><tr><th>Ejercicio</th><th>Grupo</th><th>Vídeo</th></tr>${exCache.map(x=>'<tr><td>'+esc(x.nombre)+'</td><td>'+esc(x.grupo_principal)+'</td><td>'+(x.video_url?'<a target="_blank" rel="noopener" href="'+esc(x.video_url)+'">Ver</a>':'—')+'</td></tr>').join("")}</table></div></div></div>`},
 async a_plantillas(){
@@ -1216,6 +1216,21 @@ async function savePlan(){
  if(r.error)return alert("No se pudo guardar: "+r.error.message);
  const returnClient=clientPlanReturn;planDraft=null;clientPlanReturn=null;alert("Plan publicado como versión "+version);if(returnClient){sel=returnClient;tab="clientes"}draw();
 }
+async function deletePlanVersion(id){
+ if(me?.role!=="admin")return alert("Solo el entrenador puede eliminar versiones.");
+ const {data:plan,error:readError}=await sb.from("plans").select("id,nombre,version,activo,tipo").eq("id",id).maybeSingle();
+ if(readError)return alert("No se pudo comprobar la versión: "+readError.message);
+ if(!plan)return alert("Esta versión ya no existe o no está disponible.");
+ if(plan.activo)return alert("No puedes eliminar la versión activa. Primero publica otra versión.");
+ const kind=plan.tipo==="dieta"?"nutricional":"de entrenamiento";
+ if(!confirm("¿Eliminar definitivamente la versión v"+plan.version+" del plan "+plan.nombre+" ("+kind+")?\n\nEsta acción no se puede deshacer."))return;
+ const {data:deleted,error}=await sb.from("plans").delete().eq("id",id).eq("activo",false).select("id");
+ if(error)return alert("No se pudo eliminar la versión: "+error.message);
+ if(!deleted?.length)return alert("No se ha eliminado nada. Comprueba que la versión siga siendo histórica.");
+ alert("Versión eliminada correctamente.");
+ await draw();
+}
+
 async function saveExistingPlanAsTemplate(id){
  const {data:p,error}=await sb.from("plans").select("*").eq("id",id).single();
  if(error)return alert(error.message);
