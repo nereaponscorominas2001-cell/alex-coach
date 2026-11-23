@@ -696,9 +696,12 @@ async c_entreno(){
  const todayLocal=madridPart('year')+'-'+madridPart('month')+'-'+madridPart('day');
  const weekday=new Intl.DateTimeFormat('es-ES',{timeZone:'Europe/Madrid',weekday:'long'}).format(now);
  const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
- const weekdayIndex=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'].indexOf(norm(weekday));
- let dayIndex=days.findIndex(d=>norm(d.name).trim().startsWith(norm(weekday)));
- if(dayIndex<0&&days.length===7)dayIndex=(weekdayIndex+6)%7; // Semana: lunes = día 1, domingo = día 7
+ // Los planes se ordenan de lunes a domingo: el primer bloque siempre es el Día 1 (lunes).
+ // Calculamos el día semanal con la fecha local de Madrid para evitar desfases de zona horaria
+ // y no dependemos del nombre de cada sesión (PIERNA A, EMPUJES A, etc.).
+ const weekdayIndex=(new Date(todayLocal+'T12:00:00Z').getUTCDay()+6)%7;
+ const namedWeekdayIndex=days.findIndex(d=>['lunes','martes','miercoles','jueves','viernes','sabado','domingo'].includes(norm(d.name).trim()));
+ const dayIndex=days.length===7?weekdayIndex:(namedWeekdayIndex>=0?days.findIndex(d=>norm(d.name).trim()===norm(weekday)):weekdayIndex<days.length?weekdayIndex:-1);
  const logsQ=await sb.from("workout_logs").select("*").eq("client_id",me.id).order("created_at",{ascending:false}).limit(500);
  if(logsQ.error)return '<h1>Mi <em>entrenamiento</em></h1><div class="card">No se pudo cargar el historial de cargas.</div>';
  const logs=logsQ.data||[];
