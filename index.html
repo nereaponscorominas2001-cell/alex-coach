@@ -625,7 +625,7 @@ async c_semanal(){
   }).join("");
   return '<section class="card" style="border-color:rgba(182,243,107,.3)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px"><h2 style="margin:0;color:var(--lime)">'+esc(day.name||("Día "+(i+1)))+'</h2><span class="tag">'+exercises.length+' ejercicios</span></div>'+(day.description?'<p class="muted">'+esc(day.description)+'</p>':"")+(day.cardio?'<p><b>Cardio / actividad:</b> '+esc(day.cardio)+'</p>':"")+(day.notes?'<p class="muted" style="white-space:pre-line">'+esc(day.notes)+'</p>':"")+(rows||'<p class="muted">Día sin ejercicios asignados.</p>')+'</section>';
  }).join("");
- return '<h1>Entrenamiento <em>semanal</em></h1><p class="muted">Consulta tus pesos de TOP SET y BACK-OFF y la evolución de cada ejercicio.</p>'+cards;
+ return '<h1>Entrenamiento <em>semanal</em></h1><p class="muted">Consulta las cargas registradas en cada serie y la evolución de tus ejercicios.</p>'+cards;
 },
 async c_entreno(){
  const {data,error}=await sb.from("plans").select("*").eq("client_id",me.id).eq("tipo","entreno").eq("activo",true).order("created_at",{ascending:false}).limit(1);
