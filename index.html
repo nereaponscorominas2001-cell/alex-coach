@@ -835,30 +835,33 @@ async function parseTrainingPdf(){
   const isHeading=line=>/^(?:D[IÍ]A\s*\d+\s*[|·—:-]\s*.+|(?:LUNES|MARTES|MI[EÉ]RCOLES|JUEVES|VIERNES|S[ÁA]BADO|DOMINGO)\s*[|·—:-]\s*.+)$/i.test(line);
   const addText=(obj,key,value,sep=" ")=>{if(value)obj[key]=(obj[key]?obj[key]+sep:"")+value};
   const parseExercise=line=>{
-   let raw=clean(line).replace(/^[-•–]\s*/,"");
-   const colon=raw.lastIndexOf(":");
-   let name=colon>1?clean(raw.slice(0,colon)):raw;
-   let prescription=colon>1?clean(raw.slice(colon+1)):"";
-   if(!prescription){
-    const leading=raw.match(/^(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|[-–])\s*\d+)?(?:\s*min)?)(?:\s+)(.+)$/i);
-    if(leading){name=clean(leading[3]);prescription=clean(leading[1]+"x "+leading[2])}
-    else{const match=raw.match(/^(.*?)(\d+\s*[x×]\s*\d[\d\s.,aA-]*(?:.*)?)$/);if(match){name=clean(match[1]);prescription=clean(match[2])}}
+   const raw=clean(line).replace(/^[-•–]\s*/,"");
+   if(!raw)return null;
+   const topBack=raw.match(/^(.+?)\s+(\d+)\s+Top\s*Set\s*:\s*(\d+(?:\s*[–-]\s*\d+)?)\s*reps?\s*[—–-]\s*(\d+)\s+Back\s*Off\s*:\s*(\d+(?:\s*[–-]\s*\d+)?)\s*reps?\s*[—–-]?\s*$/i);
+   if(topBack){
+    const name=clean(topBack[1]),topSets=Number(topBack[2]),backSets=Number(topBack[4]);
+    const topReps=clean(topBack[3]).replace(/\s*[–-]\s*/g,"–"),backReps=clean(topBack[5]).replace(/\s*[–-]\s*/g,"–");
+    if(name.length>=3)return {name,sets:topSets+backSets,reps:"Top Set "+topReps+" / Back Off "+backReps,rest:90,notes:"Top Set: "+topSets+" × "+topReps+" reps · Back Off: "+backSets+" × "+backReps+" reps",video_url:"",_cardio:false};
    }
+   const standard=raw.match(/^(.+?)\s+(\d+(?:\s*[–-]\s*\d+)?)\s*[x×]\s*(\d+(?:\s*[–-]\s*\d+)?)(?:\s*reps?)?(.*)$/i);
+   if(standard){
+    const name=clean(standard[1]),setText=clean(standard[2]).replace(/\s*[–-]\s*/g,"–"),reps=clean(standard[3]).replace(/\s*[–-]\s*/g,"–"),suffix=clean(standard[4]);
+    if(name.length<3)return null;
+    const setParts=setText.split("–").map(Number),sets=Math.max(...setParts),notes=[];
+    if(setParts.length>1)notes.push("Rango de series: "+setText);
+    if(suffix)notes.push(suffix.replace(/^[-—–,;]+\s*/,""));
+    return {name,sets,reps,rest:90,notes:notes.join(" · "),video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name)};
+   }
+   const colon=raw.lastIndexOf(":");
+   const name=colon>1?clean(raw.slice(0,colon)):raw,prescription=colon>1?clean(raw.slice(colon+1)):"";
    if(!prescription||name.length<3)return null;
    const setsMatches=[...prescription.matchAll(/(\d+)\s*[x×]/gi)];
    if(!setsMatches.length)return null;
    const sets=setsMatches.reduce((n,m)=>n+Number(m[1]||0),0);
-   if(!sets)return null;
    const first=prescription.match(/\d+\s*[x×]\s*(.+)/i);
    let reps=first?clean(first[1]):prescription;
-   reps=reps.replace(/\s+/g," ").replace(/\b(a|hasta)\b/gi,"-").trim();
-   const notes=[];
-   const technique=prescription.match(/(?:\d+\s*[x×]\s*[^/]+\s*)?(?:TP\s*\/\s*\d+\s*[x×][^,;]+BO|TP\s*\/[^,;]+BO|\bTP\b|\bBO\b)/i);
-   if(technique)notes.push("Método/series especiales: "+clean(prescription));
-   const trailing=prescription.replace(/^\d+\s*[x×]\s*/i,"");
-   if(/pausa|segundos|estiramiento|RIR|fallo|máximas|máximos|TP|BO/i.test(trailing)&&!technique)notes.push(clean(trailing));
-   const cardio=/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name);
-   return {name,sets,reps:reps||prescription,rest:90,notes:notes.join(" · "),video_url:"",_cardio:cardio};
+   reps=reps.replace(/\s+/g," ").replace(/\b(a|hasta)\b/gi,"–").trim();
+   return {name,sets,reps:reps||prescription,rest:90,notes:/cluster|descendente|drop.?set|fallo|RIR|pausa|tempo/i.test(prescription)?"Técnica especial: "+prescription:"",video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(name)};
   };
   let current=null;
   for(const row of lines){
