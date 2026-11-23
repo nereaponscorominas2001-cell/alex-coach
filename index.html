@@ -181,6 +181,10 @@ async function loadExerciseReferenceLibrary(){
 }
 function normalizeExerciseReferenceName(s){return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim()}
 const EXERCISE_REFERENCE_IDS={
+ "press inclinado en smith 15 30":"smith-machine-incline-bench-press",
+ "press inclinado en smith":"smith-machine-incline-bench-press",
+ "press de pecho inclinado convergente":"chest-press-machine",
+ "press pecho inclinado convergente":"chest-press-machine",
  "abduccion de cadera en maquina":"hip-abduction",
  "aperturas con mancuernas":"db-fly",
  "buenos dias con barra":"good-morning",
