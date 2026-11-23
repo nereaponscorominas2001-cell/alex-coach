@@ -1154,7 +1154,7 @@ function dietFoodCategory(f){
  return h>=p&&h>=g?"H":p>=g?"P":"G";
 }
 function dietFoodFamily(f){
- const n=String(f?.nombre||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+ const n=String(f?.nombre||f?.name||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
  const id=String(f?.id||"");
  if(id==="group_nuts"||id==="group_nut_butters"||/almendra|anacardo|avellana|nuez|pistacho|cacahuete|crema de frutos secos/.test(n))return "frutos_secos";
  if(id==="group_oils"||/aceite|mantequilla/.test(n))return "grasas_aceites";
