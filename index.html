@@ -773,7 +773,7 @@ async function copyShoppingList(){const t=Math.max(0,Math.min(7,Number(document.
 function readDietProgress(key){try{return JSON.parse(localStorage.getItem(key)||'{"index":0,"completed":[]}')}catch(e){return{index:0,completed:[]}}}
 function completeDietMeal(key,index,total){const p=readDietProgress(key);if(!p.completed.includes(index))p.completed.push(index);p.index=Math.min(index+1,total-1);if(p.completed.length>=total)p.index=total-1;localStorage.setItem(key,JSON.stringify(p));draw()}
 function moveDietMeal(key,delta,total){const p=readDietProgress(key);p.index=Math.max(0,Math.min(total-1,(Number(p.index)||0)+delta));localStorage.setItem(key,JSON.stringify(p));draw()}
-function resetDietMeals(key){localStorage.removeItem(key);draw()}
+function resetDietMeals(key){localStorage.removeItem(key);const prefix="diet-progress:";if(String(key).startsWith(prefix)){const swapKey="diet-swaps:"+String(key).slice(prefix.length);localStorage.removeItem(swapKey)}draw()}
 
 let foodsCache=[],exCache=[],planDraft=null,planClient=null,clientPlanReturn=null,dietImportMode=false,dietImport=null,dietPdfFile=null,trainingImportMode=false,trainingImport=null,trainingPdfFile=null;
 function newPlan(type){planClient=document.querySelector("#planClient")?.value||null;if(!planClient)return alert("Selecciona un cliente");planDraft={id:null,client_id:planClient,tipo:type,nombre:type==="dieta"?"Plan nutricional":"Plan de entrenamiento",objetivos:"",observaciones:"",targets:{kcal:0,protein:0,carbs:0,fat:0},meals:[{name:"Comida 1",foods:[]}],days:[{name:"Día 1",exercises:[]}]};draw()}
