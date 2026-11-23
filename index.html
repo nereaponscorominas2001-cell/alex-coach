@@ -374,6 +374,27 @@ function findSecondaryExerciseReference(name){
  if(id){const hit=secondaryExerciseReferenceLibrary.find(e=>e.id===id);if(hit)return hit;}
  const candidates=referenceSearchNames(name);return secondaryExerciseReferenceLibrary.find(e=>candidates.includes(normalizeExerciseReferenceName(e.name))||candidates.includes(normalizeExerciseReferenceName(e.name_en))||candidates.includes(normalizeExerciseReferenceName(e.name_es)))||null;
 }
+function exerciseImageUrl(x){
+ if(x?.image_url)return x.image_url;
+ const e=findExerciseReference(x?.name),flat=e?.images?.flat,repdb=flat?.peak||flat?.start||flat?.main;
+ if(repdb)return "https://exercise-dataset.com/"+repdb;
+ const secondary=findSecondaryExerciseReference(x?.name),photo=secondary?.images?.[0];
+ if(photo)return "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/"+photo.split("/").map(encodeURIComponent).join("/");
+ return "";
+}
+function exerciseVideoUrl(x){
+ const raw=String(x?.video_url||"").trim();if(raw)return raw;
+ const name=String(x?.name||"").trim();if(!name)return "";
+ return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" ejercicio técnica ejecución");
+}
+async function enrichTrainingDays(days){
+ try{await Promise.all([loadExerciseReferenceLibrary(),loadSecondaryExerciseReferenceLibrary()])}catch(e){console.warn("No se pudieron cargar las bibliotecas de ejercicios",e)}
+ for(const day of days||[])for(const x of day.exercises||[]){
+  if(!String(x.video_url||"").trim())x.video_url=exerciseVideoUrl(x);
+  if(!String(x.image_url||"").trim())x.image_url=exerciseImageUrl(x);
+ }
+ return days;
+}
 function exerciseReferenceHtml(x){
  const url=exerciseImageUrl(x);
  if(url)return '<div class="exercise-reference-thumb"><img src="'+esc(url)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.remove()"></div>';
