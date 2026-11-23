@@ -178,7 +178,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .topset-history-list span{font-size:11px;color:#aaa;background:#1b1b1b;border-radius:7px;padding:5px 7px}
 @media(max-width:560px){.topset-input{padding:12px}.topset-chip{flex:1;min-width:75px;text-align:center}}
 
-</style></head><body>
+.topset-loads{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}.topset-loads>span{flex:1;min-width:120px;padding:10px 12px;background:#111;border:1px solid #343434;border-radius:9px;color:#aaa;font-size:12px}.topset-loads b{display:block;color:var(--lime);font-size:19px;margin-top:3px}</style></head><body>
 <header><div class="logo">ALEX VICENT <b>COACH</b></div><button class="btn ghost sm" id="out" style="display:none" onclick="sb.auth.signOut()">Salir</button></header>
 <nav id="nav"></nav><main id="app"></main>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -866,8 +866,9 @@ function ensurePlanTopsetDefaults(days){(days||[]).forEach(d=>(d.exercises||[]).
 function renderTopsetPreview(i,j,csv){
  const box=document.getElementById("topsetPreview_"+i+"_"+j);if(!box)return;
  const kg=Number(document.getElementById("kg_"+i+"_"+j)?.value),a=String(csv).split(",").map(Number);
- if(!Number.isFinite(kg)||kg<=0){box.innerHTML="<span class='muted' style='font-size:12px'>Introduce la TOP SET para calcular las demás series.</span>";return}
- box.innerHTML=a.map((p,k)=>"<span class='topset-chip'>Serie "+(k+1)+" · "+p+"%<b>"+(Math.round(kg*p/100*2)/2).toLocaleString("es-ES")+" kg</b></span>").join("");
+ if(!Number.isFinite(kg)||kg<=0){box.innerHTML="<span class='muted' style='font-size:12px'>Introduce la TOP SET para calcular TOP SET y BACK-OFF.</span>";return}
+ const top=a[a.length-1]||100,bo=a.length>1?a[a.length-2]:null;
+ box.innerHTML="<span class='topset-chip'>TOP SET<b>"+(Math.round(kg*top/100*2)/2).toLocaleString("es-ES")+" kg</b></span>"+(bo===null?"":"<span class='topset-chip'>BACK-OFF<b>"+(Math.round(kg*bo/100*2)/2).toLocaleString("es-ES")+" kg</b></span>");
 }
 function workoutHistoryFor(x,logs,norm){
  const out=[];
