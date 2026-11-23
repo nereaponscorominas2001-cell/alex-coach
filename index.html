@@ -844,6 +844,16 @@ async function parseTrainingPdf(){
     const topReps=clean(topBack[3]).replace(/\s*[–-]\s*/g,"–"),backReps=clean(topBack[5]).replace(/\s*[–-]\s*/g,"–");
     if(name.length>=3)return {name,sets:topSets+backSets,reps:"Top Set "+topReps+" / Back Off "+backReps,rest:90,notes:"Top Set: "+topSets+" × "+topReps+" reps · Back Off: "+backSets+" × "+backReps+" reps",video_url:"",_cardio:false};
    }
+   // Dos bloques de una serie: interpretar como Top Set (TP) y Back Off (BO).
+   const colonForBlocks=raw.lastIndexOf(":");
+   if(colonForBlocks>2){
+    const exerciseName=clean(raw.slice(0,colonForBlocks)),prescription=clean(raw.slice(colonForBlocks+1));
+    const blocks=[...prescription.matchAll(/(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|hasta|[-–])\s*\d+)?)/gi)];
+    if(blocks.length===2&&blocks.every(m=>Number(m[1])===1)){
+     const ranges=blocks.map(m=>clean(m[2]).replace(/\s*(?:a|hasta|[-–])\s*/gi,"–"));
+     return {name:exerciseName,sets:2,reps:"TP "+ranges[0]+" / BO "+ranges[1],rest:90,notes:"1 serie TP (Top Set): "+ranges[0]+" reps · 1 serie BO (Back Off): "+ranges[1]+" reps",video_url:"",_cardio:false};
+    }
+   }
    const standard=raw.match(/^(.+?)\s+(\d+(?:\s*[–-]\s*\d+)?)\s*[x×]\s*(\d+(?:\s*[–-]\s*\d+)?)(?:\s*reps?)?(.*)$/i);
    if(standard){
     const name=clean(standard[1]),setText=clean(standard[2]).replace(/\s*[–-]\s*/g,"–"),reps=clean(standard[3]).replace(/\s*[–-]\s*/g,"–"),suffix=clean(standard[4]);
