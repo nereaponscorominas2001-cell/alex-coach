@@ -849,9 +849,10 @@ async function parseTrainingPdf(){
    if(colonForBlocks>2){
     const exerciseName=clean(raw.slice(0,colonForBlocks)),prescription=clean(raw.slice(colonForBlocks+1));
     const blocks=[...prescription.matchAll(/(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|hasta|[-–])\s*\d+)?)/gi)];
-    if(blocks.length===2&&blocks.every(m=>Number(m[1])===1)){
-     const ranges=blocks.map(m=>clean(m[2]).replace(/\s*(?:a|hasta|[-–])\s*/gi,"–"));
-     return {name:exerciseName,sets:2,reps:"TP "+ranges[0]+" / BO "+ranges[1],rest:90,notes:"1 serie TP (Top Set): "+ranges[0]+" reps · 1 serie BO (Back Off): "+ranges[1]+" reps",video_url:"",_cardio:false};
+    if(blocks.length===2){
+     const counts=blocks.map(m=>Number(m[1])),ranges=blocks.map(m=>clean(m[2]).replace(/\s*(?:a|hasta|[-–])\s*/gi,"–"));
+     const totalSets=counts[0]+counts[1];
+     return {name:exerciseName,sets:totalSets,reps:counts[0]+" TP (Top Set: "+ranges[0]+") / "+counts[1]+" BO (Back Off: "+ranges[1]+")",rest:90,notes:counts[0]+" serie"+(counts[0]===1?"":"s")+" TP (Top Set): "+ranges[0]+" reps · "+counts[1]+" serie"+(counts[1]===1?"":"s")+" BO (Back Off): "+ranges[1]+" reps",video_url:"",_cardio:false};
     }
    }
    const standard=raw.match(/^(.+?)\s+(\d+(?:\s*[–-]\s*\d+)?)\s*[x×]\s*(\d+(?:\s*[–-]\s*\d+)?)(?:\s*reps?)?(.*)$/i);
