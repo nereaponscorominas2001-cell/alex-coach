@@ -347,7 +347,8 @@ async c_dieta(){
  try{dietProgress=JSON.parse(localStorage.getItem(progressKey)||'{"index":0,"completed":[]}')}catch(e){}
  dietProgress.completed=Array.isArray(dietProgress.completed)?dietProgress.completed:[];
  dietProgress.index=Math.max(0,Math.min(Number(dietProgress.index)||0,Math.max(0,meals.length-1)));
- const sums=meals.reduce((a,m,mi)=>{(m.foods||[]).forEach((raw,fi)=>{const x=effectiveFood(raw,mi,fi),q=(+x.grams||0)/100;a.k+=(+x.kcal_100||0)*q;a.p+=(+x.prot_100||0)*q;a.c+=(+x.hc_100||0)*q;a.g+=(+x.grasa_100||0)*q});return a},{k:0,p:0,c:0,g:0});
+ const completedSet=new Set(dietProgress.completed.map(Number));
+ const sums=meals.reduce((a,m,mi)=>{if(!completedSet.has(mi))return a;(m.foods||[]).forEach((raw,fi)=>{const x=effectiveFood(raw,mi,fi),q=(+x.grams||0)/100;a.k+=(+x.kcal_100||0)*q;a.p+=(+x.prot_100||0)*q;a.c+=(+x.hc_100||0)*q;a.g+=(+x.grasa_100||0)*q});return a},{k:0,p:0,c:0,g:0});
  const pct=(v,target)=>target?Math.min(100,Math.round(v/target*100)):0;
  const bar=(label,v,target,unit)=>'<div class="diet-day-progress"><div style="display:flex;justify-content:space-between;gap:8px"><span class="diet-label">'+label+'</span><b>'+Math.round(v)+' / '+(target||'—')+' '+unit+'</b></div><div class="diet-progress-track"><div class="diet-progress-fill" style="width:'+pct(v,target)+'%"></div></div></div>';
  async function findDietRecipe(meal){
@@ -393,7 +394,7 @@ async c_dieta(){
    <div class="diet-target"><small>🍚 HIDRATOS</small><strong>${t.carbs||"—"} g</strong><small>objetivo diario</small></div>
    <div class="diet-target"><small>🥑 GRASAS</small><strong>${t.fat||"—"} g</strong><small>objetivo diario</small></div>
   </div>
-  <h3 style="margin-top:20px">Resumen estimado de tu dieta</h3>
+  <h3 style="margin-top:20px">Progreso nutricional de hoy</h3><p class="muted" style="font-size:12px;margin:0 0 10px">Las barras avanzan con los macros de cada comida que marques como completada.</p>
   ${bar("Energía",sums.k,t.kcal,"kcal")}${bar("Proteína",sums.p,t.protein,"g")}${bar("Hidratos",sums.c,t.carbs,"g")}${bar("Grasas",sums.g,t.fat,"g")}
   <p class="muted" style="font-size:11px;margin:12px 0 0">Los totales se calculan con los valores nutricionales guardados para cada alimento; pueden variar según la marca y preparación.</p>
   ${p.observaciones?'<div class="diet-note"><b>Indicaciones del entrenador</b><br>'+esc(/^Dieta generada automáticamente desde la plantilla/.test(p.observaciones)?"Sigue las comidas y cantidades indicadas. Selecciona la versión de entrenamiento o descanso según el día y utiliza las equivalencias para sustituir alimentos manteniendo los macros lo más ajustados posible.":p.observaciones)+'</div>':''}
