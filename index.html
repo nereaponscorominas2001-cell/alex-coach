@@ -500,7 +500,7 @@ async c_dieta(){
  const d=p.data||{},sets=d.meal_sets||null,activeSet=sets?(dietSet==="recovery"?sets.recovery:sets.training):null,t=activeSet?.targets||d.targets||{},meals=activeSet?.meals||d.meals||[];
  const {data:swapFoods}=await sb.from("foods").select("id,nombre,kcal_100,prot_100,hc_100,grasa_100").order("nombre");dietSwapFoods=buildDietSwapOptions(swapFoods||[]);
  const swapStorageKey="diet-swaps:"+me.id+":"+p.id+":"+dietSet;let swaps={};try{swaps=JSON.parse(localStorage.getItem(swapStorageKey)||"{}")}catch(e){swaps={}}
- const effectiveFood=(x,mi,fi)=>{const s=swaps[mi+":"+fi];if(!s)return x;const f=dietSwapFoods.find(z=>String(z.id)===String(s.food_id));return f?{...x,...f,name:f.nombre,grams:+s.grams||x.grams}:x};
+ const effectiveFood=(x,mi,fi)=>{const s=swaps[mi+":"+fi];if(!s)return x;const f=dietSwapFoods.find(z=>String(z.id)===String(s.food_id));return f?{...x,...f,name:f.nombre,grams:+s.grams||x.grams,quantity_label:null}:x};
 
  const progressKey="diet-progress:"+me.id+":"+p.id+":"+dietSet+":"+today();
  let dietProgress={index:0,completed:[]};
