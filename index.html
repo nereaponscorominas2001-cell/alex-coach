@@ -856,9 +856,9 @@ async function parseTrainingPdf(){
    const name=colon>1?clean(raw.slice(0,colon)):raw,prescription=colon>1?clean(raw.slice(colon+1)):"";
    // Formato por serie: "Nombre: 15 12 10 en cada serie".
    const perSetSource=prescription||raw;
-   const perSet=perSetSource.match(/^(.*?)\s+(\d+(?:\s+\d+){1,})\s+en cada serie\s*$/i);
+   const perSet=perSetSource.match(/^(\d+(?:\s+\d+){1,})\s+en cada serie\s*$/i);
    if(perSet){
-    const exerciseName=clean(perSet[1]).replace(/:$/,""),repValues=perSet[2].trim().split(/\s+/);
+    const exerciseName=name,repValues=perSet[1].trim().split(/\s+/);
     if(exerciseName.length>=3)return {name:exerciseName,sets:repValues.length,reps:repValues.join(" / "),rest:90,notes:"Repeticiones por serie: "+repValues.join(" · "),video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(exerciseName)};
    }
    if(!prescription||name.length<3)return null;
