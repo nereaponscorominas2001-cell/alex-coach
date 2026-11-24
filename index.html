@@ -738,14 +738,19 @@ async c_entreno(){
  // y no dependemos del nombre de cada sesión (PIERNA A, EMPUJES A, etc.).
  const weekdayIndex=(new Date(todayLocal+'T12:00:00Z').getUTCDay()+6)%7;
  const namedWeekdayIndex=days.findIndex(d=>['lunes','martes','miercoles','jueves','viernes','sabado','domingo'].includes(norm(d.name).trim()));
- const dayIndex=days.length===7?weekdayIndex:(namedWeekdayIndex>=0?days.findIndex(d=>norm(d.name).trim()===norm(weekday)):weekdayIndex<days.length?weekdayIndex:-1);
+ let dayIndex=days.length===7?weekdayIndex:(namedWeekdayIndex>=0?days.findIndex(d=>norm(d.name).trim()===norm(weekday)):weekdayIndex<days.length?weekdayIndex:-1);
+ // El cliente puede elegir libremente qué sesión realiza hoy. La elección se conserva para esta fecha y usuario.
+ const workoutSelectionKey="workout-selection:"+me.id+":"+todayLocal;
+ const savedWorkoutDay=localStorage.getItem(workoutSelectionKey);
+ if(savedWorkoutDay!==null){const selected=Number(savedWorkoutDay);if(Number.isInteger(selected)&&selected>=0&&selected<days.length)dayIndex=selected;}
+ const workoutDaySelector=days.length?'<div class="card" style="border-color:rgba(182,243,107,.45)"><label style="display:block;font-weight:750">¿Qué entrenamiento vas a realizar hoy?<select id="todayWorkoutSelect" onchange="selectTodayWorkout(this.value)" style="margin-top:8px"><option value="-1" '+(dayIndex<0?'selected':'')+'>Seleccionar entrenamiento…</option>'+days.map((day,i)=>'<option value="'+i+'" '+(i===dayIndex?'selected':'')+'>'+esc(day.name||("Día "+(i+1)))+'</option>').join('')+'</select></label><small class="muted">Puedes escoger cualquier sesión de tu rutina, independientemente del día de la semana.</small></div>':'';
  const logsQ=await sb.from("workout_logs").select("*").eq("client_id",me.id).order("created_at",{ascending:false}).limit(500);
  if(logsQ.error)return '<h1>Mi <em>entrenamiento</em></h1><div class="card">No se pudo cargar el historial de cargas.</div>';
  const logs=logsQ.data||[];
  const lastFor=x=>{for(const row of logs){for(const set of [...(row.sets||[])].reverse()){const sameId=x.exercise_id&&row.exercise_id===x.exercise_id;const sameName=norm(set.exercise_name)===norm(x.name);if((sameId||sameName)&&Number(set.topkg??set.kg)>0)return {kg:Number(set.topkg??set.kg),reps:null,date:row.fecha||row.created_at};}}return null};
  const doneToday={};
  for(const row of logs){if(row.fecha!==todayLocal)continue;for(const set of row.sets||[]){if(set.slot_key&&set.day_index===dayIndex&&!Object.prototype.hasOwnProperty.call(doneToday,set.slot_key))doneToday[set.slot_key]=!!set.completed;}}
- if(dayIndex<0)return '<h1>Mi <em>entrenamiento</em></h1><div class="card"><h2>Hoy toca descanso</h2><p class="muted">No tienes ninguna sesión asignada para '+weekday+'. Disfruta de la recuperación.</p></div>';
+ if(dayIndex<0)return '<h1>Mi <em>entrenamiento</em></h1>'+workoutDaySelector+'<div class="card"><h2>Elige tu entrenamiento</h2><p class="muted">Selecciona la sesión que vas a realizar hoy.</p></div>';
  const d=days[dayIndex],exercises=d.exercises||[];
  await loadExerciseReferenceLibrary();
  await loadSecondaryExerciseReferenceLibrary();
@@ -757,6 +762,7 @@ async c_entreno(){
  const stepPct=stepCount===""?0:Math.min(100,Math.round(Number(stepCount)/stepGoal*100));
  const stepRemaining=Math.max(0,stepGoal-(Number(stepCount)||0));
  return `<h1>Mi <em>entrenamiento</em></h1>
+ ${workoutDaySelector}
  <div class="card"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span class="tag">${now.toLocaleDateString("es-ES",{timeZone:"Europe/Madrid",weekday:"long",day:"numeric",month:"long"})}</span><span class="muted">${completed}/${exercises.length} ejercicios completados</span></div><h2 style="margin:12px 0 6px">${esc(d.name)}</h2><p class="muted">${esc(p.nombre)} · ${esc(p.objetivos||"")}</p>${d.description?'<p class="muted">'+esc(d.description)+'</p>':''}${d.cardio?'<p><b>Cardio / actividad:</b> '+esc(d.cardio)+'</p>':''}${d.notes?'<p class="muted" style="white-space:pre-line">'+esc(d.notes)+'</p>':''}<div style="height:7px;background:#303030;border-radius:20px;overflow:hidden;margin-top:12px"><div style="height:100%;width:'+(exercises.length?Math.round(completed/exercises.length*100):0)+'%;background:var(--lime)"></div></div></div>
  ${completed===exercises.length&&exercises.length>0?'<div class="card" style="border:1px solid var(--lime);background:rgba(182,243,107,.09);text-align:center;padding:22px"><div style="font-size:30px;margin-bottom:8px">🎉💪</div><h2 style="color:var(--lime);margin:0 0 8px">¡Día completado!</h2><p style="margin:0">¡Enhorabuena! Has terminado todo tu entrenamiento de hoy. Cada sesión cuenta y hoy has cumplido contigo. Sigue así, ¡estás construyendo tu mejor versión! 🔥</p></div>':''}
  <div class="card" style="border-color:rgba(182,243,107,.45);padding:20px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px"><h2 style="margin:0">🚶 Pasos de hoy</h2><span class="tag">${stepPct}%</span></div><label style="display:block;font-weight:750">¿Cuántos pasos has hecho hoy?<input id="stepsToday" type="number" min="0" step="1" inputmode="numeric" value="${stepCount}" placeholder="Ej. 8.500" style="font-size:22px;font-weight:800;text-align:center;padding:16px;margin-top:8px"></label><input id="stepsGoal" type="hidden" value="${stepGoal}"><div style="margin:18px 0 8px"><div style="height:16px;background:#303030;border-radius:20px;overflow:hidden"><div id="stepsProgressFill" style="height:100%;width:${stepPct}%;background:var(--lime);border-radius:20px;transition:width .25s"></div></div></div><div id="stepsProgressText" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:750;font-size:14px"><span>${Number(stepCount||0).toLocaleString("es-ES")} / ${stepGoal.toLocaleString("es-ES")} pasos</span><span style="color:var(--lime)">${stepCount===""?"Introduce tus pasos":stepRemaining>0?"Te faltan "+stepRemaining.toLocaleString("es-ES")+" pasos":"¡Objetivo conseguido!"}</span></div><button class="btn sm" style="width:100%;margin-top:16px" onclick="saveStepsLog()">Guardar pasos</button></div>
@@ -994,6 +1000,13 @@ function renderTopsetPreview(i,j,csv){
  if(!Number.isFinite(kg)||kg<=0){box.innerHTML="<span class='muted' style='font-size:12px'>Introduce la TOP SET para calcular TOP SET y BACK-OFF.</span>";return}
  const top=a[a.length-1]||100,bo=a.length>1?a[a.length-2]:null;
  box.innerHTML="<span class='topset-chip'>TOP SET<b>"+(Math.round(kg*top/100*2)/2).toLocaleString("es-ES")+" kg</b></span>"+(bo===null?"":"<span class='topset-chip'>BACK-OFF<b>"+(Math.round(kg*bo/100*2)/2).toLocaleString("es-ES")+" kg</b></span>");
+}
+function selectTodayWorkout(value){
+ const index=Number(value);
+ if(!Number.isInteger(index)||index<0)return;
+ const key="workout-selection:"+me.id+":"+new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Madrid',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+ localStorage.setItem(key,String(index));
+ draw();
 }
 function workoutHistoryFor(x,logs,norm){
  const out=[];
