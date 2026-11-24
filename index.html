@@ -390,8 +390,12 @@ function exerciseImageUrl(x){
 }
 function exerciseVideoUrl(x){
  const raw=String(x?.video_url||"").trim();if(raw)return raw;
- const name=String(x?.name||"").trim();if(!name)return "";
+ const name=String(x?.name||x?.nombre||"").trim();if(!name)return "";
  return "https://www.youtube.com/results?search_query="+encodeURIComponent(name+" ejercicio técnica ejecución");
+}
+function exerciseImageSearchUrl(x){
+ const name=String(x?.name||x?.nombre||"").trim();
+ return name?"https://www.google.com/search?tbm=isch&q="+encodeURIComponent(name+" ejercicio gimnasio técnica"):"";
 }
 async function enrichTrainingDays(days){
  try{await Promise.all([loadExerciseReferenceLibrary(),loadSecondaryExerciseReferenceLibrary()])}catch(e){console.warn("No se pudieron cargar las bibliotecas de ejercicios",e)}
@@ -402,8 +406,8 @@ async function enrichTrainingDays(days){
  return days;
 }
 function exerciseReferenceHtml(x){
- const name=x?.name||x?.nombre||"Ejercicio",url=exerciseImageUrl(x);
- return '<div class="exercise-reference-thumb">'+(url?'<img src="'+esc(url)+'" alt="Referencia de '+esc(name)+'" loading="lazy" onerror="this.remove()">':'<span class="exercise-image-fallback">Imagen de referencia no disponible</span>')+'</div>';
+ const name=x?.name||x?.nombre||"Ejercicio",url=exerciseImageUrl(x),search=exerciseImageSearchUrl(x);
+ return '<div class="exercise-reference-thumb">'+(url?'<img src="'+esc(url)+'" alt="Referencia de '+esc(name)+'" loading="lazy" onerror="this.parentElement.innerHTML=\'<a class=&quot;exercise-image-fallback&quot; href=&quot;'+esc(search)+'&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;>Ver imágenes ↗</a>\'">':'<a class="exercise-image-fallback" href="'+esc(search)+'" target="_blank" rel="noopener">Buscar imágenes ↗</a>')+'</div>';
 }
 function exerciseReferenceAttribution(){return '<p class="muted" style="font-size:11px;text-align:center;margin:16px 0">Imágenes: <a href="https://repdb.co" target="_blank" rel="nofollow noopener">RepDB</a> y <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="nofollow noopener">Free Exercise DB (Unlicense)</a>.</p>'}
 
@@ -1013,9 +1017,11 @@ function searchPlanExercises(dayIndex,query){
  box.innerHTML=matches.length?matches.map(o=>'<button type="button" class="exercise-search-option" onclick="addPlanExerciseFromSearch('+dayIndex+','+o.index+')"><span><b>'+esc(o.x.nombre||"Ejercicio")+'</b><small>'+esc(o.x.grupo_principal||"")+'</small></span><span class="exercise-search-add">Añadir +</span></button>').join(""):'<p class="muted exercise-search-empty">No hay coincidencias. Prueba con otro nombre o grupo muscular.</p>';
  box.hidden=false;
 }
-function addPlanExerciseFromSearch(dayIndex,exerciseIndex){
+async function addPlanExerciseFromSearch(dayIndex,exerciseIndex){
  const x=exCache?.[exerciseIndex];if(!x||!planDraft?.days?.[dayIndex])return;
- planDraft.days[dayIndex].exercises.push({exercise_id:x.id,name:x.nombre,grupo_principal:x.grupo_principal,sets:3,set_percentages:[70,85,100],reps:"8-12",rest:90,notes:x.indicaciones||"",video_url:x.video_url||""});
+ const exercise={exercise_id:x.id,name:x.nombre,grupo_principal:x.grupo_principal,sets:3,set_percentages:[70,85,100],reps:"8-12",rest:90,notes:x.indicaciones||"",video_url:x.video_url||""};
+ planDraft.days[dayIndex].exercises.push(exercise);
+ await enrichTrainingDays([planDraft.days[dayIndex]]);
  draw();
 }
 
@@ -1206,13 +1212,16 @@ async function parseDietPdf(){
 
 function openTrainingPdfImporter(){trainingImportMode=true;trainingImport=null;trainingPdfFile=null;draw()}
 function closeTrainingPdfImporter(){trainingImportMode=false;trainingImport=null;trainingPdfFile=null;draw()}
-function addManualTrainingPdfExercise(dayIndex){
+async function addManualTrainingPdfExercise(dayIndex){
  const day=trainingImport?.days?.[dayIndex];if(!day)return;
  const name=prompt("Nombre del ejercicio:");if(name===null)return;if(!name.trim())return alert("Escribe el nombre del ejercicio.");
  const setsRaw=prompt("Número de series:","3");if(setsRaw===null)return;const sets=Number(setsRaw);if(!Number.isInteger(sets)||sets<1||sets>30)return alert("Introduce un número de series válido.");
  const reps=prompt("Repeticiones o duración:","8-12");if(reps===null)return;if(!reps.trim())return alert("Introduce las repeticiones o duración.");
  const notes=prompt("Indicaciones o técnica (opcional):","")??"";
- day.exercises.push({name:name.trim(),sets,reps:reps.trim(),rest:90,notes:notes.trim(),video_url:"",_manual:true});draw();
+ const exercise={name:name.trim(),sets,reps:reps.trim(),rest:90,notes:notes.trim(),video_url:"",_manual:true};
+ day.exercises.push(exercise);
+ await enrichTrainingDays([day]);
+ draw();
 }
 async function trainingPdfImporterView(){
  const {data:clients,error}=await sb.from("profiles").select("id,nombre,apellidos,email").eq("role","client").order("nombre");
