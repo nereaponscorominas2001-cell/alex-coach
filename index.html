@@ -183,6 +183,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .exercise-picker{flex:1;min-width:220px;position:relative;margin:0 0 14px}.exercise-picker label{display:block}.exercise-search-results{margin-top:6px;background:#090909;border:1px solid #454545;border-radius:10px;max-height:300px;overflow:auto;box-shadow:0 12px 28px #0009;z-index:5}.exercise-search-option{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:48px;padding:9px 12px;background:transparent;border:0;border-bottom:1px solid #292929;color:#fff;text-align:left;cursor:pointer}.exercise-search-option:hover,.exercise-search-option:focus{background:#202820;outline:1px solid var(--lime)}.exercise-search-option span:first-child{display:flex;flex-direction:column}.exercise-search-option small{color:var(--g2);font-size:11px}.exercise-search-add{color:var(--lime);font-weight:800;white-space:nowrap}.exercise-search-empty{padding:10px 12px;margin:0;font-size:13px}
 
 .exercise-editor-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:12px 0 8px}.exercise-editor-head .muted{margin:3px 0}.exercise-reference-thumb{width:104px;height:104px;flex:0 0 104px;border-radius:10px;overflow:hidden;background:#fff;border:1px solid #444;display:flex;align-items:center;justify-content:center}.exercise-reference-thumb img{width:100%;height:100%;object-fit:contain}.exercise-video-link{display:inline-block;color:var(--lime);font-size:12px;font-weight:800;text-decoration:underline;margin-top:4px}
+.exercise-image-fallback{font-size:10px;color:#777;text-align:center;padding:8px}
 </style></head><body>
 <header><div class="logo">ALEX VICENT <b>COACH</b></div><button class="btn ghost sm" id="out" style="display:none" onclick="logout()">Salir</button></header>
 <nav id="nav"></nav><main id="app"></main>
@@ -380,9 +381,10 @@ function findSecondaryExerciseReference(name){
 }
 function exerciseImageUrl(x){
  if(x?.image_url)return x.image_url;
- const e=findExerciseReference(x?.name),flat=e?.images?.flat,repdb=flat?.peak||flat?.start||flat?.main;
- if(repdb)return "https://exercise-dataset.com/"+repdb;
- const secondary=findSecondaryExerciseReference(x?.name),photo=secondary?.images?.[0];
+ const name=x?.name||x?.nombre||"";
+ const e=findExerciseReference(name),flat=e?.images?.flat,repdb=flat?.peak||flat?.start||flat?.main;
+ if(repdb)return "https://raw.githubusercontent.com/RepDB/exercise-dataset/main/"+String(repdb);
+ const secondary=findSecondaryExerciseReference(name),photo=secondary?.images?.[0];
  if(photo)return "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/"+photo.split("/").map(encodeURIComponent).join("/");
  return "";
 }
@@ -400,9 +402,8 @@ async function enrichTrainingDays(days){
  return days;
 }
 function exerciseReferenceHtml(x){
- const url=exerciseImageUrl(x);
- if(url)return '<div class="exercise-reference-thumb"><img src="'+esc(url)+'" alt="Referencia de '+esc(x.name)+'" loading="lazy" onerror="this.parentElement.remove()"></div>';
- return '';
+ const name=x?.name||x?.nombre||"Ejercicio",url=exerciseImageUrl(x);
+ return '<div class="exercise-reference-thumb">'+(url?'<img src="'+esc(url)+'" alt="Referencia de '+esc(name)+'" loading="lazy" onerror="this.remove()">':'<span class="exercise-image-fallback">Imagen de referencia no disponible</span>')+'</div>';
 }
 function exerciseReferenceAttribution(){return '<p class="muted" style="font-size:11px;text-align:center;margin:16px 0">Imágenes: <a href="https://repdb.co" target="_blank" rel="nofollow noopener">RepDB</a> y <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="nofollow noopener">Free Exercise DB (Unlicense)</a>.</p>'}
 
