@@ -1239,7 +1239,7 @@ async function parseTrainingPdf(){
    }
    const colon=raw.lastIndexOf(":");
    const name=colon>1?clean(raw.slice(0,colon)):raw,prescription=colon>1?clean(raw.slice(colon+1)):"";
-   const topBackOnly=prescription.match(/^(\\d+)\\s*Top\\s*Set(?:s)?\\s*\\+\\s*(?:(\\d+)\\s*)?Back\\s*Off(?:s)?$/i);
+   const topBackOnly=prescription.match(/^(\d+)\s*Top\s*Set(?:s)?\s*\+\s*(?:(\d+)\s*)?Back\s*Off(?:s)?$/i);
    if(topBackOnly){const top=Number(topBackOnly[1]),back=topBackOnly[2]===undefined?1:Number(topBackOnly[2]);return {name,sets:top+back,reps:"Top Set + Back Off",rest:90,notes:top+" Top Set"+(top===1?"":"s")+" + "+back+" Back Off",video_url:"",_cardio:false};}
    // Formato por serie: "Nombre: 15 12 10 en cada serie".
    const perSetSource=prescription||raw;
@@ -1249,6 +1249,7 @@ async function parseTrainingPdf(){
     if(exerciseName.length>=3)return {name:exerciseName,sets:repValues.length,reps:repValues.join(" / "),rest:90,notes:"Repeticiones por serie: "+repValues.join(" · "),video_url:"",_cardio:/stairmaster|cardio|cinta|bicicleta|el[ií]ptica|caminar/i.test(exerciseName)};
    }
    if(!prescription||name.length<3)return null;
+   if(/top\s*set|back\s*off/i.test(prescription)){const nums=prescription.match(/(\d+)/g)||[];const sets=nums.reduce((n,v)=>n+Number(v),0)||2;return {name,sets,reps:"Top Set / Back Off",rest:90,notes:prescription,video_url:"",_cardio:false};}
    // Admite varios bloques: "1x 6 a 10 1x 11 a 14".
    const blocks=[...prescription.matchAll(/(\d+)\s*[x×]\s*(\d+(?:\s*(?:a|hasta|[-–])\s*\d+)?)/gi)];
    if(!blocks.length)return null;
