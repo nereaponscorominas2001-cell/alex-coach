@@ -785,7 +785,7 @@ async c_perfil(){const full=[me.nombre,me.apellidos].filter(Boolean).join(" ")||
 };
 function toggleClientReviews(){const el=document.getElementById("olderReviews"),btn=el?.nextElementSibling;if(!el||!btn)return;const opening=el.hidden;el.hidden=!opening;btn.textContent=opening?"Ver menos":"Ver más ("+el.querySelectorAll(".review-history-card").length+" anteriores)";}
 async function clientV(id){
- const [p,d,r,m,ph]=await Promise.all([
+ const [p,d,r,m,ph,wl]=await Promise.all([
   sb.from("profiles").select("*").eq("id",id).single(),
   sb.from("daily_logs").select("*").eq("client_id",id).order("fecha",{ascending:true}).limit(300),
   sb.from("reviews").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(100),
