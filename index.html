@@ -790,13 +790,35 @@ async function clientV(id){
   sb.from("daily_logs").select("*").eq("client_id",id).order("fecha",{ascending:true}).limit(300),
   sb.from("reviews").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(100),
   sb.from("measurements").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(100),
-  sb.from("photos").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(150)
+  sb.from("photos").select("*").eq("client_id",id).order("fecha",{ascending:false}).limit(150),
+  sb.from("workout_logs").select("fecha,sets,exercise_id,created_at").eq("client_id",id).order("fecha",{ascending:true}).limit(1000)
  ]);
  const c=p.data,photos=[];
  const {data:activePlans,error:activePlansError}=await sb.from("plans").select("*").eq("client_id",id).eq("activo",true).order("created_at",{ascending:false});
  if(activePlansError)console.error(activePlansError);
  for(const x of ph.data||[]){const signed=await sb.storage.from("progress-photos").createSignedUrl(x.path,3600);photos.push({...x,url:signed.data?.signedUrl});}
  const fmt=n=>Number(n).toLocaleString("es-ES",{maximumFractionDigits:1});
+ // Resumen de cargas por ejercicio; el historial original permanece intacto.
+ const strengthMap=new Map();
+ for(const row of wl.data||[]){
+  const byExercise=new Map();
+  for(const set of row.sets||[]){
+   const name=String(set.exercise_name||"").trim(),kg=Number(set.topkg??set.kg);
+   if(!name||!Number.isFinite(kg)||kg<=0)continue;
+   const key=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+   const prev=byExercise.get(key);
+   byExercise.set(key,{name,kg:Math.max(kg,prev?.kg||0)});
+  }
+  for(const [key,value] of byExercise){
+   if(!strengthMap.has(key))strengthMap.set(key,{name:value.name,points:[]});
+   strengthMap.get(key).points.push({fecha:row.fecha||row.created_at?.slice(0,10),kg:value.kg});
+  }
+ }
+ const strengthItems=[...strengthMap.values()].map(item=>({...item,points:item.points.filter(x=>x.fecha).sort((a,b)=>a.fecha.localeCompare(b.fecha))})).sort((a,b)=>(b.points.at(-1)?.fecha||"").localeCompare(a.points.at(-1)?.fecha||"")).slice(0,8);
+ const strengthHtml=strengthItems.length?'<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px">'+strengthItems.map(item=>{
+  const points=item.points.slice(-5),first=points[0],last=points[points.length-1],delta=first&&last?last.kg-first.kg:0;
+  return '<div style="padding:12px;border:1px solid #343434;border-radius:12px;background:rgba(255,255,255,.02)"><b style="display:block;margin-bottom:6px">'+esc(item.name)+'</b><strong style="font-size:20px;color:var(--lime)">'+fmt(last?.kg||0)+' kg</strong><small class="muted" style="display:block">Último registro · '+esc(last?.fecha||"—")+'</small><div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:9px">'+points.map(point=>'<span class="tag" style="font-size:10px">'+esc(point.fecha.slice(5).replace("-","/"))+' · '+fmt(point.kg)+' kg</span>').join("")+'</div><small class="muted" style="display:block;margin-top:7px">'+(points.length>1?'Cambio en los últimos registros: <b style="color:'+(delta>=0?'var(--lime)':'#ff9b9b')+'">'+(delta>0?'+':'')+fmt(delta)+' kg</b>':'Necesita otro registro para comparar')+'</small></div>';
+ }).join("")+'</div>':'<p class="muted" style="margin:0">Todavía no hay cargas registradas. Aparecerán aquí cuando el cliente guarde sus series o TOP SET.</p>';
  const weightMap=new Map();
  (d.data||[]).forEach(x=>{if(x.peso!==null&&x.peso!==undefined)weightMap.set(x.fecha,Number(x.peso))});
  (r.data||[]).forEach(x=>{if(x.peso!==null&&x.peso!==undefined)weightMap.set(x.fecha,Number(x.peso))});
@@ -835,6 +857,7 @@ async function clientV(id){
  <h2>Progreso del cliente</h2><div class="review-overview"><div class="review-kpi"><small>Último peso</small><strong>${last?fmt(last.peso)+' <i>kg</i>':'—'}</strong><span>${last?esc(last.fecha):'Sin registros'}</span></div><div class="review-kpi"><small>Cambio total</small><strong>${diff===null?'—':(diff>0?'+':'')+fmt(diff)+' <i>kg</i>'}</strong><span>${first&&last?'Desde '+esc(first.fecha):'Necesitas 2 registros'}</span></div><div class="review-kpi"><small>Revisiones</small><strong>${(r.data||[]).length}</strong><span>Enviadas por el cliente</span></div></div>
  <div class="card"><div class="review-section-head"><div><h3>Evolución del peso</h3><p class="muted">Registros diarios y revisiones combinados.</p></div><span class="review-accent">KG</span></div>${chart}</div>
  <div class="card"><div class="review-section-head"><div><h3>Medidas corporales</h3><p class="muted">${latest?'Última actualización: '+esc(latest.fecha):'Sin medidas registradas'}</p></div></div>${metricHtml?'<div class="review-metrics-grid">'+metricHtml+'</div>':'<p class="muted">Las medidas aparecerán al enviar una revisión.</p>'}</div>
+ <div class="card"><div class="review-section-head"><div><h3>Evolución de cargas</h3><p class="muted">Últimos registros de peso por ejercicio. El historial se conserva entre semanas.</p></div><span class="review-accent">KG</span></div>${strengthHtml}</div>
  <h2>Revisiones completas</h2>${reviewHtml||'<div class="card muted">Este cliente todavía no ha enviado revisiones.</div>'}${reviewMore}
  <h2>Dietas y entrenamiento</h2>${planHtml}
  <div class="card"><div class="review-section-head"><div><h3>Otras fotografías</h3><p class="muted">Fotos que no están asociadas a una revisión.</p></div><span class="review-count">${galleryPhotos.length}</span></div>${allPhotos}</div>
