@@ -199,7 +199,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .diet-editor-food-actions{display:flex;align-items:center;gap:8px}.diet-editor-food-actions input{width:88px;text-align:center;font-weight:800;padding:9px}
 .diet-editor-add{position:relative;margin:12px 0 2px}.diet-editor-search-results{display:grid;gap:6px;margin-top:8px;max-height:260px;overflow:auto;background:#080808;border:1px solid #333;border-radius:12px;padding:8px}
 .diet-editor-search-results button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:#171717;color:#fff;border:1px solid #303030;border-radius:9px;padding:10px 12px;cursor:pointer;font:inherit}
-.diet-editor-search-results button:hover{border-color:var(--lime)}.diet-editor-search-results small{color:var(--lime);white-space:nowrap}
+.diet-editor-search-results button:hover{border-color:var(--lime)}.diet-editor-search-results small{color:var(--lime);white-space:nowrap}.diet-editor-replace{margin:-2px 0 12px 12px;padding:0 12px 10px;border-left:2px solid #3b5229}.diet-editor-replace label{font-size:11px}.diet-editor-replace input{margin-top:5px;padding:9px 11px;font-size:13px}
 .diet-editor-empty{padding:16px;text-align:center;color:#999;border:1px dashed #444;border-radius:10px;font-size:13px}
 @media(max-width:560px){.diet-editor-meal{padding:13px}.diet-editor-food{grid-template-columns:1fr;gap:9px}.diet-editor-food-actions{justify-content:space-between}.diet-editor-food-actions input{width:105px}.diet-editor-meal-head{align-items:stretch;flex-direction:column}}
 </style></head><body>
@@ -974,9 +974,9 @@ function draftDietMealsEditor(meals,path){
  return (meals||[]).map(function(m,i){
   const foods=(m.foods||[]).map(function(x,j){
    const q=(Number(x.grams)||0)/100,k=Math.round((Number(x.kcal_100)||0)*q),p=((Number(x.prot_100)||0)*q).toFixed(1),c=((Number(x.hc_100)||0)*q).toFixed(1),g=((Number(x.grasa_100)||0)*q).toFixed(1);
-   return '<div class="diet-editor-food"><div><div class="diet-editor-food-name">'+esc(x.name||"Alimento")+'</div><div class="diet-editor-food-meta"><span class="diet-editor-chip kcal">'+k+' kcal</span><span class="diet-editor-chip">P '+p+' g</span><span class="diet-editor-chip">HC '+c+' g</span><span class="diet-editor-chip">G '+g+' g</span>'+(x._locked?'<span class="diet-editor-chip">Cantidad fijada</span>':'')+'</div></div><div class="diet-editor-food-actions"><label style="font-size:11px">Gramos<input type="number" min="0" step="1" value="'+(Number(x.grams)||0)+'" onchange="updateDraftDietGram(\''+path+'\','+i+','+j+',this.value)"></label><label style="font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" style="width:16px" '+(x._locked?'checked':'')+' onchange="toggleDraftFoodLock(\''+path+'\','+i+','+j+',this.checked)"> Fijar</label><button class="btn danger sm" type="button" onclick="removeDraftDietFood(\''+path+'\','+i+','+j+')">Eliminar</button></div></div>';
+   return '<div class="diet-editor-food"><div><div class="diet-editor-food-name">'+esc(x.name||"Alimento")+'</div><div class="diet-editor-food-meta"><span class="diet-editor-chip kcal">'+k+' kcal</span><span class="diet-editor-chip">P '+p+' g</span><span class="diet-editor-chip">HC '+c+' g</span><span class="diet-editor-chip">G '+g+' g</span>'+(x._locked?'<span class="diet-editor-chip">Cantidad fijada</span>':'')+'</div></div><div class="diet-editor-food-actions"><label style="font-size:11px">Gramos<input type="number" min="0" step="1" value="'+(Number(x.grams)||0)+'" onchange="updateDraftDietGram(\''+path+'\','+i+','+j+',this.value)"></label><label style="font-size:11px;display:flex;align-items:center;gap:5px"><input type="checkbox" style="width:16px" '+(x._locked?'checked':'')+' onchange="toggleDraftFoodLock(\''+path+'\','+i+','+j+',this.checked)"> Fijar</label><button class="btn danger sm" type="button" onclick="removeDraftDietFood(\''+path+'\','+i+','+j+')">Eliminar</button></div></div><div class="diet-editor-replace"><label>Cambiar este alimento por otro<input type="search" placeholder="Buscar sustituto: arroz, pollo, yogur..." autocomplete="off" oninput="searchDraftDietReplacement(this,i,j,this.value)"></label><div class="diet-editor-search-results" id="dietFoodReplace_'+path+'_'+i+'_'+j+'" hidden></div></div>';
   }).join("");
-  return '<section class="diet-editor-meal"><div class="diet-editor-meal-head"><label>Nombre de la comida<input value="'+esc(m.name||"")+'" onchange="getDraftDietMeals(\''+path+'\')['+i+'].name=this.value"></label><button class="btn ghost sm" type="button" onclick="removeDraftDietMeal(\''+path+'\','+i+')">Eliminar comida</button></div><div>'+(foods||'<div class="diet-editor-empty">Esta comida todavía no tiene alimentos. Añade el primero desde la biblioteca.</div>')+'</div><div class="diet-editor-add"><label>Buscar alimento en la biblioteca<input type="search" placeholder="Ej. arroz, pollo, yogur..." autocomplete="off" oninput="searchDraftDietFoods(\''+path+'\','+i+',this.value)"></label><div class="diet-editor-search-results" id="dietFoodResults_'+path+'_'+i+'" hidden></div></div></section>';
+  return '<section class="diet-editor-meal" data-diet-path="'+path+'"><div class="diet-editor-meal-head"><label>Nombre de la comida<input value="'+esc(m.name||"")+'" onchange="getDraftDietMeals(\''+path+'\')['+i+'].name=this.value"></label><button class="btn ghost sm" type="button" onclick="removeDraftDietMeal(\''+path+'\','+i+')">Eliminar comida</button></div><div>'+(foods||'<div class="diet-editor-empty">Esta comida todavía no tiene alimentos. Añade el primero desde la biblioteca.</div>')+'</div><div class="diet-editor-add"><label>Buscar alimento en la biblioteca<input type="search" placeholder="Ej. arroz, pollo, yogur..." autocomplete="off" oninput="searchDraftDietFoods(\''+path+'\','+i+',this.value)"></label><div class="diet-editor-search-results" id="dietFoodResults_'+path+'_'+i+'" hidden></div></div></section>';
  }).join("")+'<button class="btn ghost" type="button" onclick="addDraftDietMeal(\''+path+'\')">＋ Añadir otra comida</button>';
 }
 function searchDraftDietFoods(path,mi,query){
@@ -990,6 +990,25 @@ function addDraftDietFood(path,mi,index){
  const f=(foodsCache||[])[Number(index)];if(!f)return alert("No se ha encontrado el alimento en la biblioteca.");
  const meals=getDraftDietMeals(path);if(!meals[mi])return;meals[mi].foods=meals[mi].foods||[];
  meals[mi].foods.push({food_id:f.id,name:f.nombre,grams:Number(f.peso_unidad_g)||100,kcal_100:Number(f.kcal_100)||0,prot_100:Number(f.prot_100)||0,hc_100:Number(f.hc_100)||0,grasa_100:Number(f.grasa_100)||0});draw();
+}
+
+function searchDraftDietReplacement(input,mi,fi,query){
+ const box=input.nextElementSibling,path=input.closest(".diet-editor-meal")?.dataset?.dietPath||"";
+ if(!box)return;
+ box.id="dietFoodReplace_"+path+"_"+mi+"_"+fi;
+ const q=String(query||"").trim().toLocaleLowerCase("es");
+ if(!q){box.hidden=true;box.innerHTML="";return;}
+ const current=getDraftDietMeals(path)?.[mi]?.foods?.[fi];
+ const found=(foodsCache||[]).map((f,index)=>({f,index})).filter(x=>String(x.f.nombre||"").toLocaleLowerCase("es").includes(q)&&x.f.id!==current?.food_id).slice(0,12);
+ box.innerHTML=found.length?found.map(x=>'<button type="button" data-index="'+x.index+'" onclick="replaceDraftDietFoodFromSearch(this)"><span>'+esc(x.f.nombre)+'</span><small>↔ Sustituir alimento</small></button>').join(""):'<div class="diet-editor-empty">No hay coincidencias en la biblioteca.</div>';
+ box.hidden=false;
+}
+function replaceDraftDietFoodFromSearch(button){
+ const box=button.closest(".diet-editor-search-results"),parts=(box?.id||"").split("_"),path=parts[1],mi=Number(parts[2]),fi=Number(parts[3]),index=Number(button.dataset.index);
+ const f=(foodsCache||[])[index],meals=getDraftDietMeals(path),old=meals?.[mi]?.foods?.[fi];
+ if(!f||!old)return alert("No se ha podido seleccionar el alimento.");
+ meals[mi].foods[fi]={...old,food_id:f.id,name:f.nombre,kcal_100:Number(f.kcal_100)||0,prot_100:Number(f.prot_100)||0,hc_100:Number(f.hc_100)||0,grasa_100:Number(f.grasa_100)||0,quantity_label:null};
+ draw();
 }
 function removeDraftDietFood(path,mi,fi){const meals=getDraftDietMeals(path);if(!meals[mi]||!meals[mi].foods)return;meals[mi].foods.splice(fi,1);draw();}
 function removeDraftDietMeal(path,mi){getDraftDietMeals(path).splice(mi,1);draw();}
