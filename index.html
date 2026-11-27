@@ -199,7 +199,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .diet-editor-food-actions{display:flex;align-items:center;gap:8px}.diet-editor-food-actions input{width:88px;text-align:center;font-weight:800;padding:9px}
 .diet-editor-add{position:relative;margin:12px 0 2px}.diet-editor-search-results{display:grid;gap:6px;margin-top:8px;max-height:260px;overflow:auto;background:#080808;border:1px solid #333;border-radius:12px;padding:8px}
 .diet-editor-search-results button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:#171717;color:#fff;border:1px solid #303030;border-radius:9px;padding:10px 12px;cursor:pointer;font:inherit}
-.diet-editor-search-results button:hover{border-color:var(--lime)}.diet-editor-search-results small{color:var(--lime);white-space:nowrap}.diet-editor-replace{margin:-2px 0 12px 12px;padding:0 12px 10px;border-left:2px solid #3b5229}.diet-editor-replace label{font-size:11px}.diet-editor-replace input{margin-top:5px;padding:9px 11px;font-size:13px}
+.diet-editor-search-results button:hover{border-color:var(--lime)}.diet-editor-search-results button .food-suggestion-info{display:flex;flex-direction:column;gap:4px;min-width:0}.diet-editor-search-results button .food-suggestion-macros{color:#aaa;font-size:11px;white-space:normal}.diet-editor-search-results button>small{color:var(--lime);white-space:nowrap}.diet-editor-replace{margin:-2px 0 12px 12px;padding:0 12px 10px;border-left:2px solid #3b5229}.diet-editor-replace label{font-size:11px}.diet-editor-replace input{margin-top:5px;padding:9px 11px;font-size:13px}
 .diet-editor-empty{padding:16px;text-align:center;color:#999;border:1px dashed #444;border-radius:10px;font-size:13px}
 @media(max-width:560px){.diet-editor-meal{padding:13px}.diet-editor-food{grid-template-columns:1fr;gap:9px}.diet-editor-food-actions{justify-content:space-between}.diet-editor-food-actions input{width:105px}.diet-editor-meal-head{align-items:stretch;flex-direction:column}}
 </style></head><body>
@@ -979,12 +979,36 @@ function draftDietMealsEditor(meals,path){
   return '<section class="diet-editor-meal" data-diet-path="'+path+'"><div class="diet-editor-meal-head"><label>Nombre de la comida<input value="'+esc(m.name||"")+'" onchange="getDraftDietMeals(\''+path+'\')['+i+'].name=this.value"></label><button class="btn ghost sm" type="button" onclick="removeDraftDietMeal(\''+path+'\','+i+')">Eliminar comida</button></div><div>'+(foods||'<div class="diet-editor-empty">Esta comida todavía no tiene alimentos. Añade el primero desde la biblioteca.</div>')+'</div><div class="diet-editor-add"><label>Buscar alimento en la biblioteca<input type="search" placeholder="Ej. arroz, pollo, yogur..." autocomplete="off" oninput="searchDraftDietFoods(\''+path+'\','+i+',this.value)"></label><div class="diet-editor-search-results" id="dietFoodResults_'+path+'_'+i+'" hidden></div></div></section>';
  }).join("")+'<button class="btn ghost" type="button" onclick="addDraftDietMeal(\''+path+'\')">＋ Añadir otra comida</button>';
 }
+function normalizeFoodSearch(value){
+ return String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLocaleLowerCase("es").replace(/[^a-z0-9 ]/g," ").replace(/\\s+/g," ").trim();
+}
+function findDraftFoodMatches(query){
+ const q=normalizeFoodSearch(query);if(!q)return [];
+ const terms=q.split(" ").filter(Boolean);
+ return (foodsCache||[]).map(function(f,index){
+  const name=normalizeFoodSearch([f.nombre,f.alias,f.descripcion,f.marca].filter(Boolean).join(" "));
+  const score=terms.reduce(function(total,t){return total+(name.startsWith(t)?4:name.split(" ").some(function(w){return w.startsWith(t);})?3:name.includes(t)?1:0);},0);
+  return {f:f,index:index,score:score};
+ }).filter(function(x){return x.score===terms.length*4||x.score>=terms.length*2;})
+ .sort(function(a,b){return b.score-a.score||String(a.f.nombre||"").localeCompare(String(b.f.nombre||""),"es");}).slice(0,12);
+}
+function draftFoodSuggestionHtml(found,action){
+ if(!found.length)return '<div class="diet-editor-empty">No encuentro ese alimento en la biblioteca. Prueba con otra parte del nombre o añádelo primero a Biblioteca.</div>';
+ return found.map(function(x){
+  const f=x.f;
+  const nutrition='<small class="food-suggestion-macros">'+(Number(f.kcal_100)||0)+' kcal/100 g · P '+(Number(f.prot_100)||0)+' · HC '+(Number(f.hc_100)||0)+' · G '+(Number(f.grasa_100)||0)+'</small>';
+  const click=action==="replace"?'replaceDraftDietFoodFromSearch(this)':'addDraftDietFoodFromSearch(this)';
+  return '<button type="button" data-index="'+x.index+'" onclick="'+click+'"><span class="food-suggestion-info"><strong>'+esc(f.nombre)+'</strong>'+nutrition+'</span><small>'+(action==="replace"?'↔ Sustituir':'＋ Añadir')+'</small></button>';
+ }).join("");
+}
 function searchDraftDietFoods(path,mi,query){
  const box=document.getElementById("dietFoodResults_"+path+"_"+mi);if(!box)return;
- const q=String(query||"").trim().toLocaleLowerCase("es");if(!q){box.hidden=true;box.innerHTML="";return;}
- const found=(foodsCache||[]).map(function(f,index){return {f:f,index:index};}).filter(function(x){return String(x.f.nombre||"").toLocaleLowerCase("es").includes(q);}).slice(0,12);
- box.innerHTML=found.length?found.map(function(x){return '<button type="button" onclick="addDraftDietFood(\''+path+'\','+mi+','+x.index+')"><span>'+esc(x.f.nombre)+'</span><small>＋ Añadir</small></button>';}).join(""):'<div class="diet-editor-empty">No hay coincidencias. Comprueba que el alimento esté en Biblioteca.</div>';
- box.hidden=false;
+ if(!String(query||"").trim()){box.hidden=true;box.innerHTML="";return;}
+ box.innerHTML=draftFoodSuggestionHtml(findDraftFoodMatches(query),"add");box.hidden=false;
+}
+function addDraftDietFoodFromSearch(button){
+ const box=button.closest(".diet-editor-search-results"),parts=(box?.id||"").split("_");
+ addDraftDietFood(parts[1],Number(parts[2]),Number(button.dataset.index));
 }
 function addDraftDietFood(path,mi,index){
  const f=(foodsCache||[])[Number(index)];if(!f)return alert("No se ha encontrado el alimento en la biblioteca.");
@@ -999,8 +1023,8 @@ function searchDraftDietReplacement(input,mi,fi,query){
  const q=String(query||"").trim().toLocaleLowerCase("es");
  if(!q){box.hidden=true;box.innerHTML="";return;}
  const current=getDraftDietMeals(path)?.[mi]?.foods?.[fi];
- const found=(foodsCache||[]).map((f,index)=>({f,index})).filter(x=>String(x.f.nombre||"").toLocaleLowerCase("es").includes(q)&&x.f.id!==current?.food_id).slice(0,12);
- box.innerHTML=found.length?found.map(x=>'<button type="button" data-index="'+x.index+'" onclick="replaceDraftDietFoodFromSearch(this)"><span>'+esc(x.f.nombre)+'</span><small>↔ Sustituir alimento</small></button>').join(""):'<div class="diet-editor-empty">No hay coincidencias en la biblioteca.</div>';
+ const found=findDraftFoodMatches(q).filter(x=>x.f.id!==current?.food_id);
+ box.innerHTML=draftFoodSuggestionHtml(found,"replace");
  box.hidden=false;
 }
 function replaceDraftDietFoodFromSearch(button){
