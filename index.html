@@ -197,7 +197,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 8px;
 .diet-editor-food-name{font-weight:800;font-size:14px}.diet-editor-food-meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .diet-editor-chip{font-size:10px;color:#bbb;background:#202020;padding:3px 7px;border-radius:6px}.diet-editor-chip.kcal{color:var(--lime)}
 .diet-editor-food-actions{display:flex;align-items:center;gap:8px}.diet-editor-food-actions input{width:88px;text-align:center;font-weight:800;padding:9px}
-.diet-editor-add{position:relative;margin:12px 0 2px}.diet-editor-search-results{display:grid;gap:6px;margin-top:8px;max-height:260px;overflow:auto;background:#080808;border:1px solid #333;border-radius:12px;padding:8px}
+.diet-editor-add,.diet-editor-replace{position:relative}.diet-editor-add{margin:12px 0 2px}.diet-editor-search-results{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:1000;display:grid;gap:6px;margin:0;max-height:280px;overflow-y:auto;background:#101010;border:1px solid var(--lime);border-radius:12px;padding:8px;box-shadow:0 12px 30px rgba(0,0,0,.7)}.diet-editor-search-results[hidden]{display:none!important}.diet-editor-replace .diet-editor-search-results{top:calc(100% + 4px);left:0;right:0}
 .diet-editor-search-results button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:#171717;color:#fff;border:1px solid #303030;border-radius:9px;padding:10px 12px;cursor:pointer;font:inherit}
 .diet-editor-search-results button:hover{border-color:var(--lime)}.diet-editor-search-results button .food-suggestion-info{display:flex;flex-direction:column;gap:4px;min-width:0}.diet-editor-search-results button .food-suggestion-macros{color:#aaa;font-size:11px;white-space:normal}.diet-editor-search-results button>small{color:var(--lime);white-space:nowrap}.diet-editor-replace{margin:-2px 0 12px 12px;padding:0 12px 10px;border-left:2px solid #3b5229}.diet-editor-replace label{font-size:11px}.diet-editor-replace input{margin-top:5px;padding:9px 11px;font-size:13px}
 .diet-editor-empty{padding:16px;text-align:center;color:#999;border:1px dashed #444;border-radius:10px;font-size:13px}
@@ -987,9 +987,10 @@ function findDraftFoodMatches(query){
  const terms=q.split(" ").filter(Boolean);
  return (foodsCache||[]).map(function(f,index){
   const name=normalizeFoodSearch([f.nombre,f.alias,f.descripcion,f.marca].filter(Boolean).join(" "));
-  const score=terms.reduce(function(total,t){return total+(name.startsWith(t)?4:name.split(" ").some(function(w){return w.startsWith(t);})?3:name.includes(t)?1:0);},0);
-  return {f:f,index:index,score:score};
- }).filter(function(x){return x.score===terms.length*4||x.score>=terms.length*2;})
+  const matched=terms.filter(function(t){return name.includes(t);}).length;
+  const score=terms.reduce(function(total,t){return total+(name.startsWith(t)?5:name.split(" ").some(function(w){return w.startsWith(t);})?4:name.includes(t)?3:0);},0);
+  return {f:f,index:index,score:score,matched:matched};
+ }).filter(function(x){return x.matched===terms.length;})
  .sort(function(a,b){return b.score-a.score||String(a.f.nombre||"").localeCompare(String(b.f.nombre||""),"es");}).slice(0,12);
 }
 function draftFoodSuggestionHtml(found,action){
